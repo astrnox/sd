@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#4e5358">
+<title>UMBRA</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <canvas id="cv" width="960" height="544"></canvas>
+
+    <!-- HUD：只有形状，没有字 -->
+    <div id="hud" class="hud hide">
+      <div class="lv-pips" id="lvPips"></div>
+      <div class="hud-keys" id="hudKeys">
+        <span class="k"></span><span class="k"></span><span class="k"></span>
+      </div>
+      <div class="expose" id="expose">
+        <div class="expose-track"><div class="expose-fill" id="exposeFill"></div></div>
+      </div>
+      <div class="status" id="status"><i></i></div>
+      <div class="fps hide" id="fps">60</div>
+    </div>
+
+    <!-- 触屏 -->
+    <div class="touch hide" id="touch">
+      <div class="t-side t-left">
+        <button class="tbtn" data-k="left" aria-label="left">←</button>
+        <button class="tbtn" data-k="right" aria-label="right">→</button>
+      </div>
+      <div class="t-side t-right">
+        <button class="tbtn small" data-k="dash" aria-label="dash">≫</button>
+        <button class="tbtn" data-k="jump" aria-label="jump">↑</button>
+      </div>
+    </div>
+
+    <!-- 标题：一个会眨眼的方块 -->
+    <div class="screen" id="scrTitle">
+      <div class="panel center">
+        <div class="mark" aria-hidden="true">
+          <span class="eye"></span><span class="eye"></span>
+        </div>
+        <div class="btns">
+          <button class="iconbtn primary" id="btnStart" aria-label="start">▶</button>
+          <button class="iconbtn" id="btnLevels" aria-label="levels">▦</button>
+        </div>
+        <div class="lv-list hide" id="lvList"></div>
+        <div class="pad-legend" aria-hidden="true">
+          <span class="k">←</span><span class="k">→</span>
+          <span class="k">↑</span>
+          <span class="k wide">≫</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 暂停 -->
+    <div class="screen hide" id="scrPause">
+      <div class="panel center">
+        <div class="btns col">
+          <button class="iconbtn primary" id="btnResume" aria-label="resume">▶</button>
+          <button class="iconbtn" id="btnRestart" aria-label="restart">↻</button>
+          <button class="iconbtn" id="btnQuit" aria-label="home">⌂</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 过关 -->
+    <div class="screen hide" id="scrClear">
+      <div class="panel center">
+        <div class="clear-mark" id="clearMark"><i></i><i></i><i></i></div>
+        <div class="btns">
+          <button class="iconbtn primary" id="btnNext" aria-label="next">▶</button>
+          <button class="iconbtn" id="btnReplay" aria-label="replay">↻</button>
+          <button class="iconbtn" id="btnMenu" aria-label="home">⌂</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+<script src="game.js"></script>
+</body>
+</html>

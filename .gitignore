@@ -1,0 +1,10 @@
+# Temp analysis artifact (generated during GDD reconciliation, not part of the game)
+tools/.stripped.js
+
+# OS / editor noise
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+*.swp
+*~

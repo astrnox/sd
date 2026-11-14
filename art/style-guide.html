@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>UMBRA · 美术方向规范 v3.1</title>
+<style>
+  :root{
+    --bg:#43484d; --bg2:#5f646a;
+    --hard:#3a3f44; --hardtop:#4e555b;
+    --soft:#060606; --player:#000;
+    --ink:#101214; --dim:#5c6167; --line:rgba(0,0,0,.14);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;background:#e9ebed;color:var(--ink);
+    font-family:"Inter","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .page{max-width:1060px;margin:0 auto;padding:64px 40px 96px;}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+  header{border-bottom:1px solid var(--line);padding-bottom:28px;margin-bottom:52px;}
+  .kicker{font-size:10px;letter-spacing:.42em;color:#8a9096;margin-bottom:18px;}
+  h1{margin:0 0 16px;font-size:64px;line-height:.95;letter-spacing:-.02em;font-weight:700;display:flex;align-items:baseline;gap:18px;}
+  h1 span{font-size:16px;letter-spacing:.5em;font-weight:400;color:#9aa0a5;}
+  .lede{max-width:640px;font-size:15px;line-height:1.95;color:#3c4146;margin:0;}
+  h2{font-size:12px;letter-spacing:.34em;color:#8a9096;font-weight:600;margin:60px 0 20px;}
+  h2 b{color:#000;font-weight:600;margin-right:12px;}
+  .grid{display:grid;gap:14px;}
+  .cols-3{grid-template-columns:repeat(3,1fr);}
+  .cols-2{grid-template-columns:repeat(2,1fr);}
+  .card{border:1px solid var(--line);background:rgba(255,255,255,.55);padding:16px;}
+  .card .cap{margin-top:12px;font-size:11.5px;line-height:1.75;color:#54595e;}
+  .card .cap b{display:block;color:#000;font-size:12px;letter-spacing:.06em;margin-bottom:5px;font-weight:600;}
+  .sw{height:78px;position:relative;border:1px solid rgba(0,0,0,.10);}
+  .sw i{position:absolute;left:8px;bottom:6px;font-size:9px;letter-spacing:.12em;font-style:normal;color:rgba(255,255,255,.55);}
+  .sw.dark i{color:rgba(0,0,0,.45);}
+  .row{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start;}
+  .rule-list{margin:0;padding:0;list-style:none;font-size:13px;line-height:2;color:#3c4146;}
+  .rule-list li{padding-left:22px;position:relative;}
+  .rule-list li::before{content:"";position:absolute;left:0;top:13px;width:10px;height:1px;background:#000;}
+  .rule-list.no li::before{background:#9aa0a5;}
+  .rule-list b{color:#000;font-weight:600;}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th,td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--line);}
+  th{font-size:9.5px;letter-spacing:.24em;color:#8a9096;font-weight:600;}
+  td.mono{font-family:ui-monospace,monospace;color:#2a2e32;}
+  .foot{margin-top:72px;padding-top:24px;border-top:1px solid var(--line);font-size:10px;letter-spacing:.16em;color:#9aa0a5;}
+  .note{font-size:12px;line-height:1.9;color:#54595e;margin:14px 0 0;}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <div class="kicker mono">UMBRA · 暗隙 — ART DIRECTION v3.1 （单色重构 · 零文字）</div>
+    <h1>石墨与灯<span>ART SPEC</span></h1>
+    <p class="lede">世界是灰的，障碍与同类都是黑的，光是最亮的那块白。<br>
+    全片只有三个明度层级：<b style="font-weight:600">中灰（空气）· 深灰（石头）· 纯黑（同类）</b>，以及一种"材料"——光。<br>
+    唯一判断标准：玩家能否在 0.3 秒内分清"这块黑，我能不能钻进去"。</p>
+  </header>
+
+  <h2><b>01</b>明度阶梯 — 只靠明度，不用色相</h2>
+  <div class="grid cols-3" style="margin-bottom:14px">
+    <div>
+      <div class="sw" style="background:linear-gradient(180deg,#43484d,#5f646a)"><i>#43484d → #5f646a</i></div>
+      <div class="cap"><b>空气 AIR</b>背景竖向渐变，上深下浅（v3.1 再压一档，并叠加静态颗粒）。画面里最大面积的一层，永远不抢视觉。</div>
+    </div>
+    <div>
+      <div class="sw" style="background:#3a3f44"><i>#3A3F44</i></div>
+      <div class="cap"><b>硬砖 HARD</b>顶边 #4E555B。可走、挡光、<b style="display:inline;color:#000">不可伪装</b>。</div>
+    </div>
+    <div>
+      <div class="sw" style="background:#060606"><i>#060606</i></div>
+      <div class="cap"><b>黑砖 SOFT</b>顶边 #141414。同类材质，可伪装。全画面最深的黑。</div>
+    </div>
+  </div>
+  <div class="grid cols-3">
+    <div>
+      <div class="sw" style="background:#000000"><i>#000000</i></div>
+      <div class="cap"><b>玩家 PLAYER</b>纯黑。伪装时改用 #060606，与黑砖完全一致，只留 9% ± 2% 白描边呼吸（<span class="mono">0.09 + 0.02·sin</span>，game.js:1513）。</div>
+    </div>
+    <div>
+      <div class="sw dark" style="background:#ffffff"><i>#FFFFFF</i></div>
+      <div class="cap"><b>光 LIGHT</b>唯一的"材料"。锥形、脉冲、激光共用同一色温：纯白，无暖调。</div>
+    </div>
+    <div>
+      <div class="sw dark" style="background:repeating-linear-gradient(45deg,#0a0a0a 0 10px,#1e1e1e 10px 20px)"><i>#0A0A0A</i></div>
+      <div class="cap"><b>尖刺 · 出口（未解锁）</b>与黑砖同属黑色家族，靠<b style="display:inline;color:#000">形状</b>区分，不靠颜色。</div>
+    </div>
+  </div>
+  <p class="note">注意：本作<b>没有强调色</b>。没有青色、没有红色、没有金色。所有层级差异由明度与形状承担——这是它和市面上 90% 的"暗色小游戏"最不一样的地方。</p>
+
+  <h2><b>02</b>材质 — 哑光、硬边、不反光</h2>
+  <div class="row">
+    <svg width="320" height="160" viewBox="0 0 320 160">
+      <defs>
+        <linearGradient id="bgx" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#43484d"/><stop offset="1" stop-color="#5f646a"/>
+        </linearGradient>
+      </defs>
+      <rect width="320" height="160" fill="url(#bgx)"/>
+      <g>
+        <rect x="18" y="44" width="66" height="66" fill="#3a3f44"/>
+        <rect x="18" y="44" width="66" height="6" fill="#4e555b"/>
+        <rect x="24" y="70" width="54" height="2" fill="rgba(255,255,255,.07)"/>
+        <rect x="86" y="44" width="66" height="66" fill="#3a3f44"/>
+        <rect x="86" y="44" width="66" height="6" fill="#4e555b"/>
+        <rect x="92" y="70" width="54" height="2" fill="rgba(255,255,255,.07)"/>
+      </g>
+      <g>
+        <rect x="178" y="44" width="66" height="66" fill="#060606"/>
+        <rect x="178" y="44" width="66" height="4" fill="#141414"/>
+        <rect x="181" y="48" width="60" height="2" fill="rgba(255,255,255,.05)"/>
+        <rect x="246" y="44" width="66" height="66" fill="#060606"/>
+        <rect x="246" y="44" width="66" height="4" fill="#141414"/>
+        <rect x="249" y="48" width="60" height="2" fill="rgba(255,255,255,.05)"/>
+      </g>
+      <text x="18" y="132" fill="rgba(0,0,0,.6)" font-size="10" font-family="monospace" letter-spacing="2">HARD · 可走不可藏</text>
+      <text x="178" y="132" fill="rgba(0,0,0,.6)" font-size="10" font-family="monospace" letter-spacing="2">SOFT · 可藏</text>
+      <text x="18" y="30" fill="rgba(0,0,0,.35)" font-size="9" font-family="monospace" letter-spacing="2">2× ZOOM</text>
+    </svg>
+    <ul class="rule-list" style="max-width:520px">
+      <li>两种砖<b>CIELAB 明度差 ΔL* = 24.72</b>（#3A3F44 L*=26.37 ↔ #060606 L*=1.65），在灰底上都清晰可辨，且不依赖色相。</li>
+      <li>v2.0 的「明度差 52 级」已废弃：同一对色值三种算法得三个数（HSL 明度差 <span class="mono">22.4</span> / 8-bit 均值差 <span class="mono">57</span> / CIELAB <span class="mono">ΔL* 24.72</span>），「级」无单位会导致横向复算对不上。本规范统一用 <b>CIELAB L*</b>。</li>
+      <li>砖面永远<b>哑光无高光</b>：没有反射、没有渐变、没有圆角。光只提升亮度，不产生镜面。</li>
+      <li>每块砖只有两笔细节：<b>顶部 1–3 px 亮边</b> + 内部一条 7% 白线。再多就是噪音。</li>
+      <li>所有边缘 1–2 px 硬边，禁止描边发光（发光只属于光和碎片）。</li>
+    </ul>
+  </div>
+
+  <h2><b>03</b>角色 — 表情就是血条</h2>
+  <div class="grid cols-3">
+    <div class="card">
+      <svg width="100%" height="152" viewBox="0 0 260 152">
+        <rect width="260" height="152" fill="#6d7277"/>
+        <rect x="40" y="98" width="180" height="18" fill="#3a3f44"/>
+        <rect x="40" y="98" width="180" height="5" fill="#4e555b"/>
+        <circle cx="130" cy="80" r="40" fill="rgba(255,255,255,.22)"/>
+        <rect x="112" y="62" width="36" height="36" rx="3" fill="#000"/>
+        <rect x="119" y="74" width="5" height="9" fill="#fff"/>
+        <rect x="136" y="74" width="5" height="9" fill="#fff"/>
+      </svg>
+      <div class="cap"><b>暴露 EXPOSED</b>纯黑方块 + 两只发白的眼睛，10% 白描边。<b style="display:inline">眼睛是唯一"活"的证据</b>，也是光找到你的原因。</div>
+    </div>
+    <div class="card">
+      <svg width="100%" height="152" viewBox="0 0 260 152">
+        <rect width="260" height="152" fill="#6d7277"/>
+        <rect x="40" y="98" width="180" height="18" fill="#060606"/>
+        <rect x="40" y="98" width="180" height="4" fill="#141414"/>
+        <rect x="112" y="76" width="36" height="36" rx="3" fill="#060606" stroke="rgba(255,255,255,.13)" stroke-width="1"/>
+        <rect x="121" y="90" width="5" height="1" fill="rgba(255,255,255,.22)"/>
+        <rect x="134" y="90" width="5" height="1" fill="rgba(255,255,255,.22)"/>
+      </svg>
+      <div class="cap"><b>伪装 MERGED</b>眼闭成 0.8 px 细缝（两段 3×0.8 px，game.js:1527–1529）。整块<b>嵌进脚下那一格</b>：顶边由砖面上方 24 px 下移到砖面下方 1 px（ΔY = +25 px）、尺寸 22×24 → 30×30、圆角 3 → 0、四周 1 px 内缩对齐网格（game.js:1478–1485），填充色与黑砖完全一致，只剩 9% ± 2% 白描边在呼吸。</div>
+    </div>
+    <div class="card">
+      <svg width="100%" height="152" viewBox="0 0 260 152">
+        <rect width="260" height="152" fill="#6d7277"/>
+        <rect x="40" y="112" width="180" height="14" fill="#3a3f44"/>
+        <g opacity=".38"><rect x="86" y="78" width="30" height="34" rx="3" fill="#000"/></g>
+        <g opacity=".2"><rect x="64" y="82" width="26" height="30" rx="3" fill="#000"/></g>
+        <rect x="118" y="78" width="32" height="34" rx="3" fill="#000" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
+        <rect x="125" y="89" width="4" height="8" fill="#fff"/>
+        <rect x="139" y="89" width="4" height="8" fill="#fff"/>
+        <g fill="#fff" opacity=".65">
+          <circle cx="96" cy="96" r="2.2"/><circle cx="86" cy="102" r="1.7"/><circle cx="78" cy="92" r="1.4"/>
+        </g>
+      </svg>
+      <div class="cap"><b>冲刺 DASH</b>每 0.03 s 一颗白色拖尾，残影 0.3 s。冲刺是"用命换距离"，视觉上要显得危险，而不是酷炫。</div>
+    </div>
+  </div>
+
+  <h2><b>04</b>光 — 三种形态，一样白</h2>
+  <div class="grid cols-3">
+    <div class="card">
+      <svg width="100%" height="152" viewBox="0 0 260 152">
+        <defs><radialGradient id="cg" cx="50%" cy="0%" r="100%">
+          <stop offset="0" stop-color="#fff" stop-opacity=".95"/>
+          <stop offset=".45" stop-color="#fff" stop-opacity=".38"/>
+          <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+        </radialGradient></defs>
+        <rect width="260" height="152" fill="#6d7277"/>
+        <circle cx="130" cy="16" r="48" fill="#fff" opacity=".12"/>
+        <polygon points="130,16 88,142 186,142" fill="url(#cg)"/>
+        <circle cx="130" cy="16" r="10" fill="#fff" opacity=".45"/>
+        <circle cx="130" cy="16" r="2.6" fill="#fff"/>
+        <rect x="58" y="142" width="166" height="10" fill="#3a3f44"/>
+      </svg>
+      <div class="cap"><b>锥光 CONE</b>扇宽 0.44–0.56 rad，摆幅 ±0.28–0.42 rad，射程 460–640 px（game.js:79、123–124、170）。硬边 + 5.5% 体积雾。灯本体永远可见。</div>
+    </div>
+    <div class="card">
+      <svg width="100%" height="152" viewBox="0 0 260 152">
+        <defs><radialGradient id="pg"><stop offset="0" stop-color="#fff" stop-opacity=".8"/><stop offset=".5" stop-color="#fff" stop-opacity=".28"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>
+        <rect width="260" height="152" fill="#6d7277"/>
+        <circle cx="130" cy="78" r="60" fill="url(#pg)"/>
+        <circle cx="130" cy="78" r="2.6" fill="#fff"/>
+        <rect x="88" y="112" width="86" height="10" fill="#3a3f44"/>
+      </svg>
+      <div class="cap"><b>点光 POINT</b>射程 190–250 px，呼吸速率 1.5–2.4 rad/s（即周期 2.62–4.19 s，game.js:126、145、173）。封锁局部空间，不参与节奏。</div>
+    </div>
+    <div class="card">
+      <svg width="100%" height="152" viewBox="0 0 260 152">
+        <rect width="260" height="152" fill="#6d7277"/>
+        <rect x="18" y="66" width="12" height="12" fill="#fff" opacity=".6"/>
+        <line x1="30" y1="72" x2="240" y2="72" stroke="#fff" stroke-width="14" opacity=".22"/>
+        <line x1="30" y1="72" x2="240" y2="72" stroke="#fff" stroke-width="4" opacity=".7"/>
+        <line x1="30" y1="72" x2="240" y2="72" stroke="#fff" stroke-width="1.4"/>
+        <line x1="30" y1="116" x2="240" y2="116" stroke="#fff" stroke-width="1.2" stroke-dasharray="6 8" opacity=".55"/>
+        <text x="30" y="42" fill="rgba(255,255,255,.85)" font-size="9" font-family="monospace" letter-spacing="2">ON 0.9s</text>
+        <text x="30" y="140" fill="rgba(255,255,255,.7)" font-size="9" font-family="monospace" letter-spacing="2">WARN 0.5s · 虚线预警</text>
+      </svg>
+      <div class="cap"><b>激光 LASER</b>核心 2 px 纯白，中层 7 px（alpha .55），外扩 18 px 白雾（alpha .20），圆头线帽。亮之前必须 0.4–0.5 s 虚线预警（1.4 px、dash 7/9）——这是玩家读秒的唯一依据（game.js:1719–1742）。</div>
+    </div>
+  </div>
+  <p class="note"><b>黑砖必须是一块块可分辨的砌块：</b>顶边两端留 2 px 断口、每格一条 5% 竖缝。连续无接缝的黑带会让伪装永远读成"凸起"——墙本身要先能被数出格子，玩家才能混进去。</p>
+  <p class="note"><b>伪装态玩家：</b>摊成脚下那一格砖（30×30、四周 1 px 内缩、网格对齐、方角 0、同色、同顶边、同竖缝），只留 9% ± 2% 白描边与一条闭眼缝。不是沉进砖里，是<b>占住那一格</b>。终值为 <span class="mono">TILE−2</span>，故视觉上占满 32 px 格而留 1 px 给竖缝与描边（game.js:1483–1484）。</p>
+  <p class="note"><b>灯是看守，不是灯具：</b>每盏锥光由"<b>白环（虹膜）+ 黑瞳 + 朝视线偏移的白点（瞳仁）</b>"构成，直径 18 px。不画眼白、不画睫毛——一旦可爱化，冷酷感全无。黑瞳必须用 source-over 绘制（光照层是加法混合，画黑等于没画）。</p>
+  <p class="note"><b>拟人化补充：</b>当玩家在光里瞬间伪装消失，灯会完全静止地停在原地 <span class="mono">3.6 s</span>（→T3），扇宽<b>收窄至</b>原扇宽的 <span class="mono">82%</span>（→T3），再用 <span class="mono">0.9 s</span>（→T3）平滑滑回原本的摆动轨道。<b>不抖动</b>——静止比抖动更像"愣住"。它在找，但已经找不到。这是全片唯一一处"敌人有情绪"的表演，不要滥用。</p>
+  <p class="note">注：收窄与虹膜收缩（半径 9 → 6.2 px）在 <span class="mono">game.js</span> 中为<b>瞬时切换</b>，只有角度归位是 0.9 s 线性插值（game.js:517–519、1648–1650）——静止才读作"愣住"，过渡反而读作"机关在动"。</p>
+
+  <h2><b>05</b>铁律</h2>
+  <div class="grid cols-2">
+    <div class="card">
+      <div class="cap" style="margin-top:0;margin-bottom:12px"><b>DO — 必须遵守</b></div>
+      <ul class="rule-list">
+        <li>只有<b>三个明度层级</b> + 一种白。任何新元素都必须能塞进这四级里。</li>
+        <li>危险靠<b>亮度与形状</b>表达（尖刺是三角、激光是直线），不靠颜色。</li>
+        <li>可交互物件必须<b>比背景更亮或更黑</b>，不做"灰上灰"的中间调。</li>
+        <li>动效只用<b>位移与透明度</b>；唯一例外是伪装的收敛环（半径 8 → 34 px、0.22 s 淡出，game.js:1534–1541）。摊平本身由 <span class="mono">press</span> 指数逼近驱动（τ = 0.1233 s），伪装触发判定为静止 <span class="mono">0.08 s</span>（→T1）。</li>
+        <li>黑砖与玩家伪装后的色值必须<b>逐像素相同</b>（#060606）。</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="cap" style="margin-top:0;margin-bottom:12px"><b>DON'T — 禁止</b></div>
+      <ul class="rule-list no">
+        <li>不要<b>任何彩色</b>：没有青、没有橙、没有红。急了也不许加。</li>
+        <li>不要<b>圆角卡片、投影、玻璃拟态</b>——那是 UI 的糖，不是这个世界的东西。</li>
+        <li>不要<b>像素风或描边卡通</b>：材质靠明度与硬边，不靠描边。</li>
+        <li>不要给玩家加<b>常态发光</b>，只有冲刺才有拖尾。</li>
+        <li>不要<b>高频滚动噪点、扫描线、故障位移</b>——它们会把注意力从"光"上抢走；但要<b>保留</b> 128×128 静态颗粒层（<span class="mono">multiply</span>，灰度 234–255，<span class="mono">ensureNoise</span> 已实现并验收）。</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2><b>06</b>形状 HUD — 零字符串</h2>
+  <p class="note" style="margin-top:0">本作<b>游戏画面内字符串数 = 0</b>：不出现任何 UI 文案标签。信息由形状、明度、运动承担，HUD 全部为 DOM 图形，<b>没有文字排版层</b>。v2.0 的「关卡号 19px / 关卡名 14px / 计时·死亡 / 13px 按钮」整节已作废——那是「无文字 v3」之前的历史残留。<br>
+  <b>「零字符串」的准确边界：</b>禁止的是<b>词语</b>。键帽与按钮上的 ← → ↑ ≫ ▶ ▦ ↻ ⌂ 是<b>字形字符</b>（Unicode 符号），承担的是"按这个键"的动作指涉，不是文案，因此不违反本条。字体必须取自系统 <span class="mono">system-ui</span>，不引入外部字体（零外部请求）。</p>
+
+  <p class="note" style="margin:26px 0 10px"><b>6.1　<span class="mono">#hud</span> 内（随游戏画面显示）— 5 个元素</b></p>
+  <table>
+    <tr><th>元素</th><th>形状规格</th><th>位置</th><th>实现</th></tr>
+    <tr><td>关卡点 <span class="mono">#lvPips</span></td><td class="mono">5 条竖条（=关卡数，→T4）；未到 3×10px rgba(13,15,17,.22)；当前 3×16px #0a0a0a；已完成 3×10px rgba(13,15,17,.45)；间隙 6px，底对齐；过渡 .3s ease</td><td><b>左上</b> left/top <span class="mono">clamp(12–26px)</span></td><td class="mono">DOM+CSS · style.css:37–46</td></tr>
+    <tr><td>碎片插座 <span class="mono">#hudKeys</span></td><td class="mono">3 枚方形（=每关碎片 3 枚，index.html:19–20）；边长 clamp(9px,1.3vmin,12px)；1.5px solid rgba(13,15,17,.45) + rgba(255,255,255,.18) 填充；已收集填 #0a0a0a、边框同色；间隙 12px</td><td><b>顶部居中</b>（left 50%，top <span class="mono">clamp(46–66px)</span>）</td><td class="mono">DOM+CSS · style.css:49–56</td></tr>
+    <tr><td>暴露条 <span class="mono">#expose</span></td><td class="mono">容器宽 clamp(140px,22vmin,240px)；track 高 3px、底 rgba(13,15,17,.16)；fill 渐变 90deg #6a6a6a → #0a0a0a，宽度 = 暴露度；仅暴露时 opacity:1（.18s 过渡）</td><td><b>底部居中</b> bottom <span class="mono">clamp(16–32px)</span></td><td class="mono">DOM+CSS · style.css:59–66</td></tr>
+    <tr><td>状态点 <span class="mono">#status</span></td><td class="mono">&lt;i&gt; 8×8px、border-radius 1px、实心 #0a0a0a；.safe（伪装/烧穿后）为 transparent + 0 0 0 1px rgba(13,15,17,.55) 描边；过渡 .2s</td><td><b>左下</b> <span class="mono">clamp(12–26px)</span></td><td class="mono">DOM+CSS · style.css:74–83</td></tr>
+    <tr><td>FPS <span class="mono">#fps</span></td><td class="mono">500 10px/1 ui-monospace,monospace、rgba(13,15,17,.3)；每 0.5s 刷新文本。<b>实测注</b>：index.html:25 初始带 hide 类、game.js 只更新 textContent 从未解除，故<b>当前构建下不可见</b></td><td><b>右下</b> <span class="mono">clamp(10–26px)</span></td><td class="mono">DOM · style.css:68–71、194</td></tr>
+  </table>
+
+  <p class="note" style="margin:26px 0 10px"><b>6.2　<span class="mono">#hud</span> 外（标题 / 暂停 / 结算面板）— 4 个元素，不进 HUD 小节</b></p>
+  <table>
+    <tr><th>元素</th><th>形状规格</th><th>位置</th><th>实现</th></tr>
+    <tr><td>键帽图示 <span class="mono">.pad-legend .k</span></td><td class="mono">4 枚：min-width 26px / height 26px / padding 0 6px / radius 3px / 1px solid rgba(13,15,17,.25) / font 500 12px system-ui；.wide 为 min-width 38px；字符 ← → ↑ ≫</td><td>标题面板下方，整组 opacity .62</td><td class="mono">DOM+CSS · style.css:151–162、index.html:51–55</td></tr>
+    <tr><td>图标按钮 <span class="mono">.iconbtn</span></td><td class="mono">4 枚去重字形 ▶（开始/继续）、▦（选关）、↻（重开）、⌂（返回），共 8 处实例；clamp(52px,8.4vmin,64px) 方形、radius 2px、1px solid rgba(13,15,17,.22)；.primary 反相 #0a0a0a / #f2f3f4；:active 下沉 1px</td><td>标题 / 暂停 / 结算 三面板</td><td class="mono">DOM+CSS · style.css:121–133、index.html:46–49、62–78</td></tr>
+    <tr><td>标题标志 <span class="mono">.mark</span></td><td class="mono">clamp(88px,17vmin,146px) 黑方块、radius 6px、#0a0a0a；双眼各 11%×22%（left 26% / right 26%）；breathe 4.8s + blink 5.2s steps(1)</td><td>标题面板中央</td><td class="mono">DOM+CSS · style.css:97–116、index.html:43–45</td></tr>
+    <tr><td>结算三格 <span class="mono">.clear-mark i</span></td><td class="mono">14×14px、#0a0a0a、animation pop .4s ease both；第 2 格 delay .1s、第 3 格 .2s</td><td>结算面板顶部</td><td class="mono">DOM+CSS · style.css:165–172、index.html:73</td></tr>
+  </table>
+
+  <p class="note">HUD 容器为 <span class="mono">pointer-events:none</span>，不拦截输入。触屏（<span class="mono">@media (pointer:coarse)</span>）下：状态点整体上移 78 px 避开虚拟键、FPS 隐藏。触屏虚拟键 4 枚（← → ≫ ↑，圆壳 64×64、<span class="mono">.small</span> 54×54，coarse 下缩为 52 / 44）在 <span class="mono">#touch</span> 层，属独立层、不计入 HUD（style.css:175–200、index.html:29–38）。</p>
+  <p class="note">菜单与暂停页反相：深色底 + 白字，形成"进入/退出世界"的开关感。这是唯一出现系统字形的层，但字形只来自上面 6.2 列出的 8 个符号，<b>不出现任何词语</b>。</p>
+
+  <h2><b>07</b>参考与禁区</h2>
+  <div class="row" style="font-size:13px;line-height:2;color:#3c4146">
+    <div style="flex:1;min-width:300px">
+      <div style="color:#000;margin-bottom:8px;font-weight:600">取法</div>
+      Playdead《Limbo》《Inside》的剪影与留白 · 《Monument Valley》的哑光几何 · 黑白胶片的高对比打光 · 参考截图中"灰底黑块 + 一束白光"的关系
+    </div>
+    <div style="flex:1;min-width:300px">
+      <div style="color:#000;margin-bottom:8px;font-weight:600">不取法</div>
+      霓虹赛博（光会变廉价）· 像素复古（材质细节会被迫变成纹理）· 任何"发光边框"的 UI 皮肤 · 任何彩色强调色
+    </div>
+  </div>
+
+  <h2><b>08</b>修订记录</h2>
+  <table>
+    <tr><th>版本</th><th>日期</th><th>修订内容</th></tr>
+    <tr>
+      <td class="mono">v3.1</td>
+      <td class="mono">2026-11-14</td>
+      <td>按 GDD 美术清单 §8 异议 1–7 逐条对账 <span class="mono">game.js</span> / <span class="mono">style.css</span>，共 12 项（R1–R9 + 逐条核实时发现的 3 处同类硬数偏差）：<br>
+        ① 版本号 v2.0 → v3.1（<span class="mono">title</span> / kicker / 页脚）。<br>
+        ② 空气色板标签 <span class="mono">#4E5358→#70757A</span> → <span class="mono">#43484d→#5f646a</span>（PAL.bgTop/bgBottom，game.js:31–32）。<br>
+        ③ 玩家白描边 13% → 9% ± 2%（<span class="mono">0.09 + 0.02·sin</span>，game.js:1513）。<br>
+        ④ 「明度差 52 级」→ <b>CIELAB ΔL* = 24.72</b>，并注明同一对色值三种算法得三个数（HSL 22.4 / 8-bit 均值 57 / CIELAB 24.72）。<br>
+        ⑤ 伪装卡面「身体下沉 7 px」→ 实测：顶边由砖面上方 24 px 下移到砖面下方 1 px（ΔY = +25 px）、22×24 → 30×30、圆角 3 → 0、四周 1 px 内缩（game.js:1478–1485）。<br>
+        ⑥ DON'T 由「不要噪点滤镜」改为「不要高频滚动噪点 / 扫描线 / 故障位移」，并<b>保留</b> 128×128 静态颗粒层（<span class="mono">ensureNoise</span>，game.js:922–938、1129–1135）。<br>
+        ⑦ §06 由「文字排版 HUD」整节改为「形状 HUD」<b>两表</b>（6.1 <span class="mono">#hud</span> 内 5 元素 / 6.2 <span class="mono">#hud</span> 外 4 元素，位置与尺寸全部源码实测），并在表首明确<b>零字符串 = 不出现词语，箭头与图符字形不算文案</b>；参数取自 <span class="mono">style.css</span> 与 <span class="mono">index.html</span>（行号见表第四列）。<br>
+        ⑧ 术语统一：融合 / 融入 / 融为一体 → <b>伪装</b>（7 处）。<br>
+        ⑨ 灯停顿「扇宽收窄到 82%」→「扇宽<b>收窄至</b>原扇宽的 82%」（→T3 口径），并注明收窄与虹膜收缩为瞬时切换、仅角度归位为 0.9 s 线性（game.js:517–519、1648–1650）。<br>
+        ⑩ 锥光「扇宽 0.44–0.62 / 摆幅 ±0.25–0.44 rad」→ 实测 0.44–0.56 / ±0.28–0.42 rad、射程 460–640 px（game.js:79、123–124、170）。<br>
+        ⑪ 点光「呼吸周期 1.5–2.4 s」单位错 → 呼吸<b>速率</b> 1.5–2.4 rad/s（周期 2.62–4.19 s，game.js:126、145、173）。<br>
+        ⑫ 激光「核心 1.4 px / 外扩 14 px」→ 实测三层 2 / 7 / 18 px（alpha 1 / .55 / .20），1.4 px 实为<b>预警虚线</b>的线宽（game.js:1719–1742）。</td>
+    </tr>
+    <tr>
+      <td class="mono">v2.0</td>
+      <td class="mono">2026-11-14</td>
+      <td>初版单色重构（明度阶梯、材质、角色三态、三种光型、铁律、排版与 HUD）。后经 v3 无文字改版，本页 §06 未同步，v3.1 已修正。</td>
+    </tr>
+  </table>
+
+  <div class="foot mono">UMBRA ART SPEC v3.1 · 所有色值与 game.js 的 PAL 常量同源 · 改一处必须改两处 · 每个数都能在 game.js / style.css / 真值表里查到</div>
+</div>
+</body>
+</html>
