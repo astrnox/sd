@@ -362,6 +362,44 @@ ok(pM.alive === true, '第一次被照满不死（给新手一次喘息）');
 ok(U.level._mercy === true, '免死标记已用掉（只给一次）');
 ok(pM.exposure < 0.2, '免死后暴露清零');
 
+console.log('\n[17] 一局模式：房间池 + 门厅');
+const rs = U.assembleRun(2026);
+ok(rs.length === 15, '一局 15 间房（3 幕 × 5）');
+const rs2 = U.assembleRun(2026);
+ok(rs.length === rs2.length && rs.every((r, i) => r.cols === rs2[i].cols && r.lights.length === rs2[i].lights.length), '同种子房间一致（可复现）');
+ok(rs.every((r) => r.exit && r.keys.length >= 1 && r.soft.length >= 1), '每间房都有出口 / 碎片 / 可躲的黑砖');
+U.startRun(2026);
+ok(U.mode === 'run' && U.state === 'play', '开始一局 → 直接进入第一间房');
+U.level.keys.forEach((k) => { k.got = true; });
+const rx = U.level.exit;
+U.player.x = rx.x + 2; U.player.y = rx.y + 20; U.player.vx = 0; U.player.vy = 0;
+frames(5);
+ok(U.state === 'memory' || U.state === 'clear', '清房 → 先走记忆过场（不直接跳关）');
+U.openDoorHall();
+ok(U.state === 'doorhall', '幕间进入门厅（选择下次去哪）');
+U.hallChoose();
+ok(U.state === 'play' && U.runIdx === 5, '选完门 → 进入下一幕第一间房');
+
+console.log('\n[18] 一整局能从头打到结局');
+U.startRun(424242);
+let guard = 0, sawHall = false, roomsCleared = 0;
+while (U.state !== 'ending' && guard++ < 80) {
+  if (U.state === 'play') {
+    U.level.keys.forEach((k) => { k.got = true; });
+    const e = U.level.exit;
+    U.player.x = e.x + 2; U.player.y = e.y + 20; U.player.vx = 0; U.player.vy = 0;
+    frames(4);
+    if (U.state !== 'play') roomsCleared++;
+  } else if (U.state === 'memory' || U.state === 'clear') {
+    frames(200);
+  } else if (U.state === 'doorhall') {
+    sawHall = true;
+    U.hallChoose();
+  } else { break; }
+}
+ok(sawHall, '一局里至少经过一次门厅');
+ok(U.state === 'ending', '打完一整局到达结局（清 ' + roomsCleared + ' 房，' + guard + ' 步）');
+
 console.log('\n──────────────');
 console.log(`通过 ${pass} 项，失败 ${fail} 项`);
 process.exit(fail ? 1 : 0);

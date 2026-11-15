@@ -289,6 +289,12 @@
   let noisePat = null;
   let dirFlash = 0;
   let endT = 0, endingKind = 'light', runClean = true;
+  // 一局（Run）模式的状态
+  let mode = 'campaign';                         // 'campaign' | 'run'
+  let runRooms = [], runIdx = 0, runAct = 0, runSeed = 0, runPath = [], runScore = 0;
+  let hallSel = 0;
+  let wakeNext = 'campaign';
+  const ACTS = 3, ROOMS_PER_ACT = 5;
   let memT = 0;
   let wakeT = 0;
   let memFreeze = false;   // 光"愣住"的状态：{L, t, ang}
@@ -400,6 +406,7 @@
   }
 
   function startLevel(i) {
+    mode = 'campaign';
     levelIndex = clamp(i, 0, LEVELS.length - 1);
     level = makeLevel(LEVELS[levelIndex]);
     if (levelIndex === 0) runClean = true;   // 每一轮从头开始记「有没有被光看见过」
@@ -424,12 +431,161 @@
     showTouch();
   }
 
+  /* ===================== 一局（Run）：房间池 + 门厅 ===================== */
+  function seededRng(seed) {
+    let s = (seed | 0) || 1;
+    return function () { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+  }
+
+  // 生成一间保证可进的房：连续地板 + 侧墙 + 地上黑砖段（可躲）+ 走得到的碎片 + 右侧出口
+  function genRoom(seed, act, i, bias) {
+    const rr = seededRng(((seed ^ (act * 7919) ^ (i * 104729) ^ 0x9e3779b9) >>> 0));
+    const cols = 30 + Math.floor(rr() * 8);          // 30..37（铺满一屏，避免房间缩在左边）
+    const hard = [[0, 15, cols, 2], [0, 0, 1, 17], [cols - 1, 0, 1, 17]];
+    const soft = [];
+    const g1 = 2 + Math.floor(rr() * Math.max(1, cols - 8));
+    soft.push([g1, 15, 3, 2]);
+    const g2 = Math.min(cols - 4, g1 + 5 + Math.floor(rr() * 3));
+    if (g2 + 3 <= cols - 1 && g2 !== g1) soft.push([g2, 15, 3, 2]);
+    const nP = 1 + act + Math.floor(rr() * 2);
+    for (let k = 0; k < nP; k++) {
+      const w = 2 + Math.floor(rr() * 2);
+      const x = 2 + Math.floor(rr() * Math.max(1, cols - 4 - w));
+      const y = 9 + Math.floor(rr() * 4);
+      soft.push([x, y, w, 1]);
+    }
+    const spikes = [];   // Phase 1 先不放尖刺：保证每间房都能走过去（难度交给灯的数量）
+    const keyX = 3 + Math.floor(rr() * Math.max(1, cols - 6));
+    const keys = [[keyX, 14]];
+    const exit = [cols - 3, 13];
+    const lights = [];
+    let nL = 1 + (act >= 1 ? 1 : 0) + (act >= 2 ? 1 : 0);
+    if (bias > 0) nL += 1; else if (bias < 0) nL = Math.max(1, nL - 1);
+    for (let k = 0; k < nL; k++) {
+      const lx = (3 + Math.floor(rr() * Math.max(1, cols - 6))) * TILE;
+      lights.push({ type: 'cone', x: lx, y: 40, angle: Math.PI / 2, spread: 0.44 + rr() * 0.12, range: 560, amp: 0.2 + act * 0.08, speed: 0.5 + rr() * 0.5, phase: rr() * 6.283 });
+    }
+    return {
+      id: 100 + act * 10 + i, name: '', cols,
+      spawn: [48, 15 * TILE - 24],
+      hard, soft, spikes, keys, exit, lights, ms: [], ghosts: [], scars: []
+    };
+  }
+
+  function assembleRun(seed) {
+    runSeed = (seed | 0) || 1;
+    runRooms = [];
+    for (let a = 0; a < ACTS; a++) for (let i = 0; i < ROOMS_PER_ACT; i++) runRooms.push(genRoom(runSeed, a, i, 0));
+    return runRooms;
+  }
+
+  function startRun(seed) {
+    mode = 'run';
+    assembleRun(seed == null ? (Date.now() & 0x7fffffff) : seed);
+    runIdx = 0; runAct = 0; runPath = []; runScore = 0; runClean = true;
+    startRoom(0);
+  }
+
+  function startRoom(idx) {
+    runIdx = clamp(idx, 0, runRooms.length - 1);
+    runAct = Math.floor(runIdx / ROOMS_PER_ACT);
+    level = makeLevel(runRooms[runIdx]);
+    player = {
+      x: level.spawn.x, y: level.spawn.y, w: 22, h: 24,
+      vx: 0, vy: 0, face: 1, onGround: false, coyote: 0, jumpBuf: 0,
+      dashT: 0, dashCd: 0, exposure: 0, alive: true, deadT: 0, trail: 0, _wasGround: false,
+      merged: false, mergeT: 0, eye: 1, mergePop: 0, press: 0, holdT: 0
+    };
+    cam = clamp(player.x - VIEW_W / 2, 0, Math.max(0, level.cols * TILE - VIEW_W));
+    particles = []; shakeT = 0; shakeMag = 0; gameTime = 0; fx = 0;
+    state = 'play'; memFreeze = false;
+    input.left = input.right = input.jump = false;
+    el.scrTitle.classList.add('hide');
+    el.scrPause.classList.add('hide');
+    el.scrClear.classList.add('hide');
+    el.hud.classList.remove('hide');
+    buildLvPips(); syncKeys(); updateHud(true); showTouch();
+  }
+
+  function openDoorHall() {
+    state = 'doorhall'; hallSel = 0;
+    el.hud.classList.add('hide');
+    el.touch.classList.add('hide');
+    el.scrClear.classList.add('hide');
+    Audio.ui();
+  }
+
+  function hallChoose() {
+    if (state !== 'doorhall') return;
+    runPath.push(hallSel);
+    const nextAct = runAct + 1;
+    // 最后一幕前的这一次是「假选择」：门不一样，去哪都一样；但游戏记住你选了哪扇
+    const fake = nextAct >= ACTS - 1;
+    const bias = fake ? 0 : (hallSel === 0 ? 1 : (hallSel === 1 ? -1 : 0));
+    if (nextAct < ACTS) {
+      const seed2 = ((runSeed ^ (0x51ed27 * (hallSel + 1))) >>> 0);
+      for (let i = 0; i < ROOMS_PER_ACT; i++) {
+        const k = nextAct * ROOMS_PER_ACT + i;
+        runRooms[k] = genRoom(seed2, nextAct, i, bias);
+        if (!fake && hallSel === 2) runRooms[k].ghosts = [[Math.floor(runRooms[k].cols / 2), 12]];
+      }
+    }
+    Audio.ui();
+    if (nextAct < ACTS) startRoom(nextAct * ROOMS_PER_ACT);
+    else { state = 'ending'; endT = 3.4; }
+  }
+
+  function drawDoorHall() {
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.fillStyle = '#2b2f33';
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    const n = 3, w = 118, h = 188, gap = 56;
+    const totalW = n * w + (n - 1) * gap;
+    const x0 = (VIEW_W - totalW) / 2, y0 = (VIEW_H - h) / 2 + 6;
+    for (let i = 0; i < n; i++) {
+      const dx = x0 + i * (w + gap), sel = i === hallSel;
+      ctx.fillStyle = sel ? 'rgba(255,255,255,.94)' : 'rgba(255,255,255,.12)';
+      ctx.fillRect(dx, y0, w, h);
+      ctx.strokeStyle = sel ? '#0a0a0a' : 'rgba(255,255,255,.42)';
+      ctx.lineWidth = sel ? 3 : 1.5;
+      ctx.strokeRect(dx + 0.5, y0 + 0.5, w - 1, h - 1);
+      const cx = dx + w / 2, cy = y0 + h / 2;
+      const ink = sel ? '#0a0a0a' : 'rgba(255,255,255,.75)';
+      // 图标（无字）：0 亮门=实心块+光；1 暗门=一道缝；2 记忆门=两道闭眼刻痕
+      if (i === 0) {
+        ctx.fillStyle = ink; ctx.fillRect(cx - 15, cy - 15, 30, 30);
+        ctx.fillStyle = sel ? 'rgba(10,10,10,.35)' : 'rgba(255,255,255,.35)';
+        ctx.fillRect(cx - 22, cy - 2, 44, 4);
+      } else if (i === 1) {
+        ctx.strokeStyle = ink; ctx.lineWidth = 2.4;
+        ctx.beginPath(); ctx.moveTo(cx - 20, cy); ctx.lineTo(cx + 20, cy); ctx.stroke();
+      } else {
+        ctx.strokeStyle = ink; ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        ctx.moveTo(cx - 15, cy); ctx.lineTo(cx - 4, cy);
+        ctx.moveTo(cx + 4, cy); ctx.lineTo(cx + 15, cy);
+        ctx.stroke();
+      }
+      if (sel) { ctx.fillStyle = '#0a0a0a'; ctx.fillRect(cx - 20, y0 + h + 12, 40, 3); }
+    }
+    for (let a = 0; a < ACTS; a++) {
+      ctx.fillStyle = a < runAct ? 'rgba(255,255,255,.85)' : (a === runAct ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.16)');
+      ctx.fillRect(VIEW_W / 2 - 34 + a * 24, VIEW_H - 40, 14, 4);
+    }
+  }
+
   /* ------------------------- 输入 ------------------------- */
   function onKeyDown(e) {
     const k = e.code;
     if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space'].indexOf(k) >= 0) e.preventDefault();
     Audio.init();
     if (e.repeat) return;
+    if (state === 'doorhall') {
+      if (k === 'ArrowLeft' || k === 'KeyA') { hallSel = (hallSel + 2) % 3; Audio.ui(); }
+      else if (k === 'ArrowRight' || k === 'KeyD') { hallSel = (hallSel + 1) % 3; Audio.ui(); }
+      else if (k === 'Space' || k === 'Enter' || k === 'ArrowUp' || k === 'KeyW' || k === 'KeyJ') { hallChoose(); }
+      return;
+    }
     if (k === 'ArrowLeft' || k === 'KeyA') input.left = true;
     if (k === 'ArrowRight' || k === 'KeyD') input.right = true;
     if (k === 'Space' || k === 'KeyW' || k === 'ArrowUp' || k === 'KeyJ') { input.jump = true; input.jumpEdge = true; }
@@ -717,7 +873,8 @@
 
   function restartLevel() {
     const keepDeaths = level ? level.deaths : 0;
-    startLevel(levelIndex);
+    if (mode === 'run') startRoom(runIdx);
+    else startLevel(levelIndex);
     if (level) level.deaths = keepDeaths;
     updateHud(true);
   }
@@ -868,11 +1025,11 @@
     const lit = p.merged ? false : playerLit();
     if (lit && level.def.clue && level.clueT < 0) level.clueT = 0;
     if (lit) {
-      const expUp = EXP_UP * (levelIndex === 0 ? 0.35 : 1);   // 教学关给更多反应时间
+      const expUp = EXP_UP * ((mode === 'campaign' && levelIndex === 0) ? 0.35 : 1);   // 仅战役教学关放慢
       p.exposure = Math.min(1, p.exposure + expUp * dt);
       if (p.exposure > 0.1) runClean = false;   // 被光看到，就再也不是「无痕」了
       if (p.exposure >= 1) {
-        if (levelIndex === 0 && !level._mercy) {
+        if (mode === 'campaign' && levelIndex === 0 && !level._mercy) {
           // 教学关免死一次：灯"被吓退"愣住 3.6 s，给你一口喘息看清"停住"这件事
           level._mercy = true;
           p.exposure = 0;
@@ -943,7 +1100,7 @@
   }
 
   function clearLevel() {
-    save.depth = Math.max(save.depth, Math.min(LEVELS.length, levelIndex + 1));
+    // 记忆跨房间/跨关卡都保留：这一局走过的路 + 三个瞬间
     const keep = [];
     for (let i = 0; i < level.trace.length; i += 3) keep.push(level.trace[i]);
     save.lastTrace = keep.length > 2 ? keep : null;
@@ -959,18 +1116,39 @@
       sh ? { type: 'dash', u: sh.u, v: sh.v } : { type: 'dash', u: 0.9, v: 0.8 }
     ];
     save.lastEvents = level.events3;
-    const t = level.time;
-    const best = save.best[levelIndex];
-    if (!best || t < best) save.best[levelIndex] = t;
-    save.unlocked = Math.max(save.unlocked, Math.min(LEVELS.length, levelIndex + 2));
+    // 战役模式才动"解锁 / 最佳时间"；一局模式不污染战役存档
+    if (mode !== 'run') {
+      save.depth = Math.max(save.depth, Math.min(LEVELS.length, levelIndex + 1));
+      const best = save.best[levelIndex];
+      if (!best || level.time < best) save.best[levelIndex] = level.time;
+      save.unlocked = Math.max(save.unlocked, Math.min(LEVELS.length, levelIndex + 2));
+    }
     persist();
     el.hud.classList.add('hide');
     el.touch.classList.add('hide');
     el.scrClear.classList.add('hide');
     Audio.win();
     Audio.setHeat(0);
-    // 记忆演出期间 step() 不跑，白闪会卡住不衰减，所以不设 fx
-    // 每过一关，记忆图多拼出一块；最后一关是翻转
+
+    // 一局模式：清房 → 记忆过场 / 幕间门厅 / 最终结局
+    if (mode === 'run') {
+      runScore++;
+      const roomInAct = runIdx % ROOMS_PER_ACT;
+      const isActEnd = roomInAct === ROOMS_PER_ACT - 1;
+      const isLast = runIdx >= runRooms.length - 1;
+      if (isLast) {
+        endingKind = runClean ? 'shade' : 'light';
+        achieve(endingKind);
+        state = 'ending'; endT = 3.4;
+      } else if (isActEnd) {
+        openDoorHall();
+      } else {
+        state = 'memory'; memT = 2.4;
+      }
+      return;
+    }
+
+    // 战役模式：记忆演出期间 step() 不跑，白闪会卡住不衰减，所以不设 fx
     if (levelIndex === LEVELS.length - 1) {
       endingKind = runClean ? 'shade' : 'light';
       achieve(endingKind);
@@ -994,6 +1172,11 @@
 
   function nextOrMenu() {
     Audio.ui();
+    if (mode === 'run') {
+      if (runIdx >= runRooms.length - 1) { toTitle(); return; }
+      startRoom(runIdx + 1);
+      return;
+    }
     if (levelIndex === LEVELS.length - 1) { toTitle(); return; }
     startLevel(levelIndex + 1);
   }
@@ -1177,6 +1360,7 @@
       drawWake(clamp(1 - wakeT / 2.4, 0, 1));
       return;
     }
+    if (state === 'doorhall') { drawDoorHall(); return; }
     const t = gameTime;
     const shx = shakeT > 0 ? rnd(-1, 1) * shakeMag * (shakeT / 0.35) : 0;
     const shy = shakeT > 0 ? rnd(-1, 1) * shakeMag * (shakeT / 0.35) : 0;
@@ -1950,10 +2134,12 @@
   function buildLvPips() {
     if (!el.lvPips) return;
     el.lvPips.innerHTML = '';
-    for (let i = 0; i < LEVELS.length; i++) {
+    const n = mode === 'run' ? (runRooms.length || 15) : LEVELS.length;
+    const cur = mode === 'run' ? runIdx : levelIndex;
+    for (let i = 0; i < n; i++) {
       const b = document.createElement('i');
-      if (i < levelIndex) b.className = 'done';
-      else if (i === levelIndex) b.className = 'on';
+      if (i < cur) b.className = 'done';
+      else if (i === cur) b.className = 'on';
       el.lvPips.appendChild(b);
     }
   }
@@ -1987,6 +2173,7 @@
   /* ------------------------- 状态切换 ------------------------- */
   function toTitle() {
     state = 'title';
+    mode = 'campaign';
     level = null; player = null; lastStatus = null;
     input.left = input.right = input.jump = false;
     el.hud.classList.add('hide');
@@ -2047,11 +2234,17 @@
     } else if (state === 'wake') {
       acc = 0;
       wakeT -= raw;
-      if (wakeT <= 0) startLevel(0);
+      if (wakeT <= 0) { if (wakeNext === 'run') startRoom(0); else startLevel(0); }
+    } else if (state === 'doorhall') {
+      acc = 0;
+      gameTime += raw;
     } else if (state === 'memory') {
       acc = 0;
       if (!memFreeze) memT -= raw;
-      if (memT <= 0) { state = 'clear'; el.scrClear.classList.remove('hide'); }
+      if (memT <= 0) {
+        if (mode === 'run') startRoom(runIdx + 1);   // 一局模式：过场结束直接进下一间房
+        else { state = 'clear'; el.scrClear.classList.remove('hide'); }
+      }
     } else if (state === 'ending') {
       acc = 0;
       endT -= raw;
@@ -2074,11 +2267,23 @@
   /* ------------------------- 绑定 ------------------------- */
   function startIntro() {
     Audio.init(); Audio.ui();
+    wakeNext = 'campaign';
     state = 'wake';
     wakeT = 2.4;
     el.scrTitle.classList.add('hide');
   }
-  $('#btnStart').addEventListener('click', startIntro);
+  // 一局模式：先播开场（灯闭眼→砖睁眼），再进第一间房
+  function beginRun(seed) {
+    Audio.init(); Audio.ui();
+    mode = 'run';
+    assembleRun(seed == null ? (Date.now() & 0x7fffffff) : seed);
+    runIdx = 0; runAct = 0; runPath = []; runScore = 0; runClean = true;
+    wakeNext = 'run';
+    state = 'wake';
+    wakeT = 2.4;
+    el.scrTitle.classList.add('hide');
+  }
+  $('#btnStart').addEventListener('click', () => beginRun());
   $('#btnLevels').addEventListener('click', () => {
     Audio.init(); Audio.ui();
     el.lvList.classList.toggle('hide');
@@ -2117,6 +2322,11 @@
     get negT() { return negT; },
     get endingKind() { return endingKind; },
     get runClean() { return runClean; },
-    get ach() { return save.ach || {}; }
+    get ach() { return save.ach || {}; },
+    get mode() { return mode; },
+    get runIdx() { return runIdx; },
+    get runRooms() { return runRooms; },
+    get runPath() { return runPath; },
+    assembleRun, startRun, beginRun, startRoom, openDoorHall, hallChoose
   };
 })();
