@@ -66,6 +66,7 @@
         [0, 15, 46, 2], [0, 0, 1, 17], [45, 0, 1, 17]
       ],
       soft: [
+        [6, 15, 7, 2],
         [5, 12, 4, 1], [11, 10, 3, 1], [16, 12, 4, 1], [22, 10, 4, 1],
         [28, 12, 3, 1], [33, 10, 4, 1], [38, 12, 5, 1]
       ],
@@ -76,6 +77,8 @@
       keys: [[6, 11], [23, 9], [39, 11]],
       exit: [42, 13],
       lights: [
+        // 教学灯：从右边慢慢把视线挪到你身上——跑不掉，只能停下变成砖
+        { type: 'cone', x: 352, y: 40, angle: 0.7, spread: 0.40, range: 580, track: true, speed: 0.5, amp: 0.1, phase: 0 },
         { type: 'cone', x: 576, y: 40, angle: Math.PI / 2, spread: 0.56, range: 640, amp: 0.28, speed: 0.55, phase: 0 },
         { type: 'cone', x: 1120, y: 40, angle: Math.PI / 2, spread: 0.50, range: 620, amp: 0.30, speed: 0.70, phase: 2.0 }
       ]
@@ -558,6 +561,14 @@
       const k = Math.min(1, 1 - curious.fade / 0.9);
       return curious.ang + (natural - curious.ang) * k;
     }
+    // 教学灯：2.2 s 内把视线从初始方向平滑摆到你身上（跑不掉，只能停住）
+    if (L.track && !L._tutDone && player && player.alive) {
+      const px = player.x + player.w / 2, py = player.y + player.h / 2;
+      const want = Math.atan2(py - L.y, px - L.x);
+      const tt = Math.min(1, level.time / 2.2);
+      const k = tt * tt * (3 - 2 * tt);
+      return L.angle + (want - L.angle) * k;
+    }
     return natural;
   }
 
@@ -571,6 +582,7 @@
       if (L.type !== 'cone') continue;
       if (!litBy(L, gameTime, cx, cy)) continue;
       curious = { L: L, ang: coneAngle(L, gameTime), hold: 3.6, fade: 0.9 };
+      if (L.track) L._tutDone = true;   // 教学灯演过一次就不再追你
       achieve('stare');
       if (Audio.curious) Audio.curious();
       return;
@@ -856,7 +868,8 @@
     const lit = p.merged ? false : playerLit();
     if (lit && level.def.clue && level.clueT < 0) level.clueT = 0;
     if (lit) {
-      p.exposure = Math.min(1, p.exposure + EXP_UP * dt);
+      const expUp = EXP_UP * (levelIndex === 0 ? 0.35 : 1);   // 教学关给更多反应时间
+      p.exposure = Math.min(1, p.exposure + expUp * dt);
       if (p.exposure > 0.1) runClean = false;   // 被光看到，就再也不是「无痕」了
       if (p.exposure >= 1) { die('light'); return; }
       if (Math.random() < dt * 24) burst(p.x + p.w / 2 + rnd(-9, 9), p.y + rnd(0, p.h), 'rgba(255,255,255,1)', 1);
@@ -886,7 +899,8 @@
       k.got = true;
       dirFlash = 0.45;
       Audio.key();
-      burst(k.x, k.y, 'rgba(255,255,255,1)', k.inWall ? 22 : 16);
+      burst(k.x, k.y, 'rgba(255,255,255,1)', k.inWall ? 30 : 22);
+      if (FX.pressure) { waves.push({ x: k.x, y: k.y, t: 0.3, dur: 0.3, from: 6, to: 46 }); waveCount++; }
       syncKeys(); updateHud(true);
     }
 
@@ -1205,6 +1219,23 @@
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     drawExposureVignette();
     drawFrameEdges();
+
+    // 门在这一侧看不见时，屏幕边缘给一道微光：不用文字也知道该往哪走
+    if (level && level.exit) {
+      const exS = level.exit.x + level.exit.w / 2 - camX;
+      const ep = 0.09 + 0.05 * Math.sin(gameTime * 2.2);
+      if (exS > VIEW_W + 8) {
+        const g = ctx.createLinearGradient(VIEW_W - 110, 0, VIEW_W, 0);
+        g.addColorStop(0, 'rgba(255,255,255,0)');
+        g.addColorStop(1, 'rgba(255,255,255,' + ep + ')');
+        ctx.fillStyle = g; ctx.fillRect(VIEW_W - 110, 0, 110, VIEW_H);
+      } else if (exS < -8) {
+        const g = ctx.createLinearGradient(110, 0, 0, 0);
+        g.addColorStop(0, 'rgba(255,255,255,0)');
+        g.addColorStop(1, 'rgba(255,255,255,' + ep + ')');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, 110, VIEW_H);
+      }
+    }
 
     const np = ensureNoise();
     if (np) {
@@ -1642,6 +1673,15 @@
       ctx.fillRect(ecx + 3, ecy, 3, 0.8);
     }
     ctx.restore();
+
+    // 暴露环：贴着你画一圈，别只靠屏幕底那条 3px 的条
+    if (p.exposure > 0.02 && !p.merged) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, 24, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * p.exposure);
+      ctx.strokeStyle = 'rgba(255,' + Math.round(210 - 90 * p.exposure) + ',' + Math.round(150 - 90 * p.exposure) + ',' + (0.35 + 0.55 * p.exposure) + ')';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
 
     // 伪装瞬间的收敛环
     if (p.mergePop > 0) {

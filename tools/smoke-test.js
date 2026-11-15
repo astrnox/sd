@@ -341,6 +341,15 @@ ok(U.state === 'ending', '最后一关集齐碎片走进门 → 进入结局序�
 ok(U.endingKind === 'light' || U.endingKind === 'shade', '结局类型属于「成为灯 / 无痕」（实际：' + U.endingKind + '）');
 ok(Object.keys(U.ach).length > 0, '结局达成本地留档（成就数据层非空）');
 
+console.log('\n[15] 教学关：一盏会主动来找你的灯');
+U.startLevel(0);
+ok(U.level.lights.some((L) => L.track === true), '教学关有一盏会主动追人的灯（不用玩家自己找光）');
+ok(U.player.merged === false, '出生在灰色地面，不会一上来就自动伪装');
+const pT = U.player;
+pT.x = 3 * 32 + 4; pT.y = 15 * 32 - 24; pT.vx = 0; pT.vy = 0;
+frames(140);
+ok(U.level.clueT >= 0, '教学灯会自己摆过来照到你（"它冲我来了"）');
+
 console.log('\n──────────────');
 console.log(`通过 ${pass} 项，失败 ${fail} 项`);
 process.exit(fail ? 1 : 0);
