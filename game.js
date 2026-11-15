@@ -18,8 +18,8 @@
   const GRAV = 2400, RUN = 340, ACC = 2800, FRIC = 3400;
   const JUMP_V = 790, COYOTE = 0.09, JBUF = 0.12, JCUT = 0.42;
   const DASH_V = 900, DASH_T = 0.13, DASH_CD = 0.8;
-  // 暴露致死 0.6 s：0.34 s 太狠（来不及反应）、1.0 s 太松（能在灯下散步）。0.6 s = 停下(0.1s)+挪一格勉强够，误判即死
-  const EXP_UP = 1 / 0.6, EXP_DN = 1 / 0.55;
+  // 暴露致死时间见 exposureSec()（按进度 1.0→0.35 s 收紧）；这里只留恢复速率
+  const EXP_DN = 1 / 0.55;
   const MERGE_T = 0.08;      // 静止多久后融入
   const MERGE_V = 34;        // 低于该速度视为静止
   const SAVE_KEY = 'umbra.save.v2';
@@ -970,6 +970,17 @@
     updateHud(true);
   }
 
+  // 暴露致死时间：随进度收紧（越往后越短 = 越难）。第一关最松 ~1.0s，第三幕最硬 0.35s。
+  function exposureSec() {
+    if (mode === 'run') {
+      if (runIdx === 0) return 1.0;   // 第一间：最容易
+      if (runAct === 0) return 0.6;
+      if (runAct === 1) return 0.45;
+      return 0.35;                     // 第三幕：最硬
+    }
+    return [1.0, 0.6, 0.5, 0.45, 0.4][levelIndex] || 0.5;
+  }
+
   function step(dt) {
     if (state !== 'play') return;
     gameTime += dt;
@@ -1116,7 +1127,7 @@
     const lit = p.merged ? false : playerLit();
     if (lit && level.def.clue && level.clueT < 0) level.clueT = 0;
     if (lit) {
-      p.exposure = Math.min(1, p.exposure + EXP_UP * dt);
+      p.exposure = Math.min(1, p.exposure + dt / exposureSec());
       if (p.exposure > 0.1) runClean = false;   // 被光看到，就再也不是「无痕」了
       if (p.exposure >= 1) {
         if (mode === 'campaign' && levelIndex === 0 && !level._mercy) {
@@ -2414,6 +2425,7 @@
     get runClean() { return runClean; },
     get ach() { return save.ach || {}; },
     get mode() { return mode; },
+    get exposureSec() { return exposureSec(); },
     get runIdx() { return runIdx; },
     get runRooms() { return runRooms; },
     get runPath() { return runPath; },

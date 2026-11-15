@@ -415,6 +415,15 @@ ok(rf.every((r) => r.lights.every((L) => Math.round(L.x / 32) >= 8)), '灯全在
 ok(rf.every((r) => r.lights.every((L) => Math.round(L.x / 32) <= r.cols - 8)), '灯不会压到出口区');
 ok(rf.slice(1).every((r) => r.soft.filter((s) => s[3] === 1).length >= 2), '每间房至少 2 块空中平台（有纵向结构）');
 
+console.log('\n[20] 难度曲线：暴露致死随进度收紧');
+U.startRun(123);
+ok(Math.abs(U.exposureSec - 1.0) < 0.01, '第一间 1.0 s（最松，好上手）');
+U.startRoom(1);  ok(Math.abs(U.exposureSec - 0.6) < 0.01, '第一幕 0.6 s');
+U.startRoom(6);  ok(Math.abs(U.exposureSec - 0.45) < 0.01, '第二幕 0.45 s');
+U.startRoom(11); ok(Math.abs(U.exposureSec - 0.35) < 0.01, '第三幕 0.35 s（最硬）');
+U.startLevel(0); ok(Math.abs(U.exposureSec - 1.0) < 0.01, '战役第一关 1.0 s');
+U.startLevel(4); ok(Math.abs(U.exposureSec - 0.4) < 0.01, '战役第五关 0.4 s');
+
 if (process.env.MAP) {
   U.assembleRun(2026);
   [0, 5, 10].forEach((i) => { console.log('\n--- room ' + i + ' ---\n' + U.ascii(i)); });
