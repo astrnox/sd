@@ -400,6 +400,22 @@ while (U.state !== 'ending' && guard++ < 80) {
 ok(sawHall, '一局里至少经过一次门厅');
 ok(U.state === 'ending', '打完一整局到达结局（清 ' + roomsCleared + ' 房，' + guard + ' 步）');
 
+console.log('\n[19] 房间设计公平性（不会无解 / 不会出生即死）');
+const rf = U.assembleRun(2026);
+const floorType = (r, x) => r.soft.some((s) => s[0] <= x && x < s[0] + s[2] && s[1] <= 15 && 15 < s[1] + s[3]) ? 'S' : 'H';
+ok(rf.every((r) => {
+  let run = 0, mx = 0;
+  for (let x = 5; x <= r.cols - 6; x++) { if (floorType(r, x) === 'H') { run++; mx = Math.max(mx, run); } else run = 0; }
+  return mx <= 1;
+}), '中段地面最多 1 格连续硬砖 → 随时能找到藏身黑砖');
+ok(rf.every((r) => r.lights.every((L) => Math.round(L.x / 32) >= 8)), '灯全在中段（col≥8），照不到出生点');
+ok(rf.every((r) => r.lights.every((L) => Math.round(L.x / 32) <= r.cols - 8)), '灯不会压到出口区');
+
+if (process.env.MAP) {
+  U.assembleRun(2026);
+  [0, 5, 10].forEach((i) => { console.log('\n--- room ' + i + ' ---\n' + U.ascii(i)); });
+}
+
 console.log('\n──────────────');
 console.log(`通过 ${pass} 项，失败 ${fail} 项`);
 process.exit(fail ? 1 : 0);

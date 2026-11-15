@@ -438,37 +438,51 @@
   }
 
   // 生成一间保证可进的房：连续地板 + 侧墙 + 地上黑砖段（可躲）+ 走得到的碎片 + 右侧出口
+  // 房间设计规则（保证"合理"）：
+  //  1) 出生点(最左)与出口(最右)永远无灯，且是灰硬地板；
+  //  2) 中段地面按「黑,黑,灰」循环 → 任意位置 1 格内必有黑砖可藏；
+  //  3) 灯只放在中段 col 9..cols-8，均匀分布，永远照不到出生点；
+  //  4) 碎片放在中段某块黑砖上，走过去顺手拿；出口在最右端。
   function genRoom(seed, act, i, bias) {
     const rr = seededRng(((seed ^ (act * 7919) ^ (i * 104729) ^ 0x9e3779b9) >>> 0));
-    const cols = 30 + Math.floor(rr() * 8);          // 30..37（铺满一屏，避免房间缩在左边）
-    const hard = [[0, 15, cols, 2], [0, 0, 1, 17], [cols - 1, 0, 1, 17]];
+    let B = 2 + (act >= 1 ? 1 : 0);
+    if (bias > 0) B += 1; else if (bias < 0) B -= 1;
+    B = Math.max(1, Math.min(4, B));
+    const cols = 30 + act * 3 + Math.floor(rr() * 4);        // 30..~40
+    const hard = [[0, 0, 1, 17], [0, 15, cols, 2], [cols - 1, 0, 1, 17]];
     const soft = [];
-    const g1 = 2 + Math.floor(rr() * Math.max(1, cols - 8));
-    soft.push([g1, 15, 3, 2]);
-    const g2 = Math.min(cols - 4, g1 + 5 + Math.floor(rr() * 3));
-    if (g2 + 3 <= cols - 1 && g2 !== g1) soft.push([g2, 15, 3, 2]);
-    const nP = 1 + act + Math.floor(rr() * 2);
+    // 地面：出生区(1-4) 与 出口区(cols-5..) 留灰；中段 黑,黑,灰 循环
+    for (let x = 5; x <= cols - 6; x++) {
+      if (x % 3 !== 2) soft.push([x, 15, 1, 2]);
+    }
+    // 灯：只在中段，均匀分布，照不到出生点
+    const lights = [];
+    const lx0 = 9, lx1 = Math.max(lx0 + 1, cols - 8);
+    for (let b = 0; b < B; b++) {
+      const bx = Math.round(lx0 + ((b + 0.5) / B) * (lx1 - lx0));
+      lights.push({
+        type: 'cone', x: bx * TILE, y: 40, angle: Math.PI / 2,
+        spread: 0.30 + act * 0.03, range: 560,
+        amp: 0.12 + act * 0.04, speed: 0.4 + act * 0.12, phase: rr() * 6.283
+      });
+    }
+    // 空中黑平台：1-2 个（可选路线 / 额外藏身）
+    const nP = 1 + Math.floor(rr() * 2);
     for (let k = 0; k < nP; k++) {
       const w = 2 + Math.floor(rr() * 2);
-      const x = 2 + Math.floor(rr() * Math.max(1, cols - 4 - w));
-      const y = 9 + Math.floor(rr() * 4);
-      soft.push([x, y, w, 1]);
+      const px = 6 + Math.floor(rr() * Math.max(1, cols - 13 - w));
+      const py = 11 + Math.floor(rr() * 2);
+      soft.push([px, py, w, 1]);
     }
-    const spikes = [];   // Phase 1 先不放尖刺：保证每间房都能走过去（难度交给灯的数量）
-    const keyX = 3 + Math.floor(rr() * Math.max(1, cols - 6));
-    const keys = [[keyX, 14]];
+    // 碎片：放在中段某块黑砖列的地面（走过去就拿到）
+    let keyCol = Math.max(6, Math.min(cols - 7, 8 + Math.floor(rr() * Math.max(1, cols - 16))));
+    while (keyCol % 3 === 2 && keyCol < cols - 7) keyCol++;
+    const keys = [[keyCol, 14]];
     const exit = [cols - 3, 13];
-    const lights = [];
-    let nL = 1 + (act >= 1 ? 1 : 0) + (act >= 2 ? 1 : 0);
-    if (bias > 0) nL += 1; else if (bias < 0) nL = Math.max(1, nL - 1);
-    for (let k = 0; k < nL; k++) {
-      const lx = (3 + Math.floor(rr() * Math.max(1, cols - 6))) * TILE;
-      lights.push({ type: 'cone', x: lx, y: 40, angle: Math.PI / 2, spread: 0.44 + rr() * 0.12, range: 560, amp: 0.2 + act * 0.08, speed: 0.5 + rr() * 0.5, phase: rr() * 6.283 });
-    }
     return {
       id: 100 + act * 10 + i, name: '', cols,
       spawn: [48, 15 * TILE - 24],
-      hard, soft, spikes, keys, exit, lights, ms: [], ghosts: [], scars: []
+      hard, soft, spikes: [], keys, exit, lights, ms: [], ghosts: [], scars: []
     };
   }
 
@@ -477,6 +491,31 @@
     runRooms = [];
     for (let a = 0; a < ACTS; a++) for (let i = 0; i < ROOMS_PER_ACT; i++) runRooms.push(genRoom(runSeed, a, i, 0));
     return runRooms;
+  }
+
+  // 把一间房打成 ASCII 图，供无浏览器环境下检查关卡结构
+  // ' '=空 '#'=灰硬砖 '.'=黑砖（可伪装）'L'=灯 'K'=碎片 'E'=出口 'S'=出生
+  function roomAscii(idx) {
+    const def = runRooms[idx];
+    if (!def) return '';
+    const lv = makeLevel(def);
+    const g = lv.grid.map((r) => r.slice());
+    const setc = (cx, cy, ch) => { if (cy >= 0 && cy < lv.rows && cx >= 0 && cx < lv.cols) g[cy][cx] = ch; };
+    (def.lights || []).forEach((L) => { const cx = Math.floor(L.x / TILE); if (cx >= 0 && cx < lv.cols) g[0][cx] = 'L'; });
+    const k = (def.keys || [])[0]; if (k) setc(k[0], k[1], 'K');
+    setc(def.exit[0], def.exit[1], 'E');
+    setc(Math.floor(def.spawn[0] / TILE), Math.floor(def.spawn[1] / TILE), 'S');
+    let out = '';
+    for (let y = 0; y < lv.rows; y++) {
+      let row = '';
+      for (let x = 0; x < lv.cols; x++) {
+        const v = g[y][x];
+        if (v === 'L' || v === 'K' || v === 'E' || v === 'S') row += v;
+        else row += (v === EMPTY ? ' ' : (v === HARD ? '#' : '.'));
+      }
+      out += row + '\n';
+    }
+    return out;
   }
 
   function startRun(seed) {
@@ -2327,6 +2366,7 @@
     get runIdx() { return runIdx; },
     get runRooms() { return runRooms; },
     get runPath() { return runPath; },
-    assembleRun, startRun, beginRun, startRoom, openDoorHall, hallChoose
+    assembleRun, startRun, beginRun, startRoom, openDoorHall, hallChoose,
+    ascii: (idx) => roomAscii(idx)
   };
 })();
