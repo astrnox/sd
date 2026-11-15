@@ -350,6 +350,18 @@ pT.x = 3 * 32 + 4; pT.y = 15 * 32 - 24; pT.vx = 0; pT.vy = 0;
 frames(140);
 ok(U.level.clueT >= 0, '教学灯会自己摆过来照到你（"它冲我来了"）');
 
+console.log('\n[16] 教学关免死一次');
+U.startLevel(0);
+const pM = U.player;
+const Lm = U.level.lights.find((x) => x.track) || U.level.lights[0];
+Lm._tutDone = true; Lm.amp = 0;
+pM.x = 3 * 32 + 4; pM.y = 15 * 32 - 24; pM.vx = 0; pM.vy = 0; pM.exposure = 0.999;
+Lm.angle = Math.atan2((pM.y + 12) - Lm.y, (pM.x + 11) - Lm.x);
+frames(2);
+ok(pM.alive === true, '第一次被照满不死（给新手一次喘息）');
+ok(U.level._mercy === true, '免死标记已用掉（只给一次）');
+ok(pM.exposure < 0.2, '免死后暴露清零');
+
 console.log('\n──────────────');
 console.log(`通过 ${pass} 项，失败 ${fail} 项`);
 process.exit(fail ? 1 : 0);

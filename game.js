@@ -871,7 +871,17 @@
       const expUp = EXP_UP * (levelIndex === 0 ? 0.35 : 1);   // 教学关给更多反应时间
       p.exposure = Math.min(1, p.exposure + expUp * dt);
       if (p.exposure > 0.1) runClean = false;   // 被光看到，就再也不是「无痕」了
-      if (p.exposure >= 1) { die('light'); return; }
+      if (p.exposure >= 1) {
+        if (levelIndex === 0 && !level._mercy) {
+          // 教学关免死一次：灯"被吓退"愣住 3.6 s，给你一口喘息看清"停住"这件事
+          level._mercy = true;
+          p.exposure = 0;
+          negT = 0.16;
+          const L = level.lights.find((x) => x.track) || level.lights[0];
+          if (L && L.type === 'cone' && !curious) curious = { L, ang: coneAngle(L, gameTime), hold: 3.6, fade: 0.9 };
+          if (Audio.curious) Audio.curious();
+        } else { die('light'); return; }
+      }
       if (Math.random() < dt * 24) burst(p.x + p.w / 2 + rnd(-9, 9), p.y + rnd(0, p.h), 'rgba(255,255,255,1)', 1);
     } else {
       p.exposure = Math.max(0, p.exposure - EXP_DN * (p.merged ? 3 : 1) * dt);

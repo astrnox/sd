@@ -660,6 +660,7 @@ WebAudio 合成，常驻 14 个节点，噪声 buffer 48 kHz × 2 s × Float32 =
 | `UMBRA_暗隙_PRD.md` | 644 行 / 35.8 KB | v4.0 | 产品需求（已同步术语与四处实测口径） |
 | `UMBRA_差异化说明.md` | 92 行 / 6.3 KB | v2.0 | 与 Sqube 的八条差异 + 对外答辩口径（第 2/8 条已收窄） |
 | `UMBRA_主题与商业定位.md` | 127 行 / 6.0 KB | v2.0 | **主题「被看见」**：无声的史丹利（元叙事）+ 心理深处（《双相》式）+ 三结局=三种生存策略 + Steam 标签/卖点/商店页标语 |
+| `UMBRA_时长与内容扩展.md` | 78 行 / 4.6 KB | v1.0 | **时长方案**：10 min → 2 h 的房间池+轻肉鸽路线、四条路对比、分阶段落地 |
 | `art/style-guide.html` | 313 行 / 26.6 KB | v3.1 | 视觉规范页（明度阶梯、材质、角色三态、光型、形状 HUD、修订记录） |
 | `index.html` / `style.css` / `game.js` | 2,242 行 / **88,603 B** | Build 1.0 | **可玩 Demo**，82 项断言全绿 |
 | `tools/smoke-test.js` / `mkshot.js` / `archive-phase1.js` | — | — | 冒烟测试 / 可控时钟截图 / Phase 1 产出回收 |
