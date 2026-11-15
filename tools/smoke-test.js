@@ -331,6 +331,16 @@ U.player.x = dv.u * U.level.cols * 32 - 11; U.player.y = dv.v * 17 * 32 - 12;
 frames(3);
 ok(U.memRate > 0.0003, '走到上局死过的地方，更难冷静');
 
+console.log('\n[14] 结局分歧与成就数据层');
+U.startLevel(4);
+U.level.keys.forEach((k) => { k.got = true; });
+const ex5 = U.level.exit;
+U.player.x = ex5.x + 2; U.player.y = ex5.y + 20; U.player.vx = 0; U.player.vy = 0;
+frames(5);
+ok(U.state === 'ending', '最后一关集齐碎片走进门 → 进入结局序列');
+ok(U.endingKind === 'light' || U.endingKind === 'shade', '结局类型属于「成为灯 / 无痕」（实际：' + U.endingKind + '）');
+ok(Object.keys(U.ach).length > 0, '结局达成本地留档（成就数据层非空）');
+
 console.log('\n──────────────');
 console.log(`通过 ${pass} 项，失败 ${fail} 项`);
 process.exit(fail ? 1 : 0);

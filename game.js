@@ -285,11 +285,11 @@
   let curious = null;
   let noisePat = null;
   let dirFlash = 0;
-  let endT = 0;
+  let endT = 0, endingKind = 'light', runClean = true;
   let memT = 0;
   let wakeT = 0;
   let memFreeze = false;   // 光"愣住"的状态：{L, t, ang}
-  let save = { unlocked: 1, best: {}, depth: 0, lastTrace: null, lastEvents: null };
+  let save = { unlocked: 1, best: {}, depth: 0, lastTrace: null, lastEvents: null, ach: {} };
   const input = { left: false, right: false, jump: false, jumpEdge: false, dashEdge: false };
 
   try {
@@ -297,6 +297,17 @@
     if (raw) { const o = JSON.parse(raw); if (o && typeof o === 'object') save = Object.assign(save, o); }
   } catch (e) {}
   function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} }
+  // 成就数据层：只记不舍。真正的 Steam 成就需在发行时用 Steamworks SDK 上报，
+  // 这里先把达成状态落到本地存档，保证判定逻辑与文案一一对应。
+  const ACH = {
+    firstHide: '第一次伪装成砖', stare: '第一次让灯愣住', clean: '一路无痕走完一关',
+    light: '成为灯', brick: '成为砖', shade: '无痕结局', allKeys: '集齐全部碎片'
+  };
+  function achieve(id) {
+    if (!save.ach) save.ach = {};
+    if (save.ach[id]) return;
+    save.ach[id] = 1; persist();
+  }
 
   /* ------------------------- 关卡构建 ------------------------- */
   function fillRect(grid, cols, [x, y, w, h], v) {
@@ -329,8 +340,18 @@
       }
       return { x: bx * TILE, y: by * TILE, type: q.type, onSolid: found };
     });
+    // 远景视差层：给平面世界一点纵深，避免平台读成浮空的 UI 条
+    const parallax = [];
+    {
+      let s = (def.id || 1) * 9176 + 37;
+      const rr = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+      const span = cols * TILE;
+      for (let i = 0; i < 30; i++) {
+        parallax.push({ x: rr() * (span + 200) - 100, y: 30 + rr() * 400, w: 24 + rr() * 130, h: 50 + rr() * 220, a: 0.035 + rr() * 0.055 });
+      }
+    }
     return {
-      def, cols, rows: ROWS, grid,
+      def, cols, rows: ROWS, grid, parallax,
       spikes: (def.spikes || []).map(([x, y, w, h]) => ({ x: x * TILE + 5, y: y * TILE + 14, w: w * TILE - 10, h: h * TILE - 14 })),
       keys: (def.keys || []).map(([x, y, flag]) => ({
         x: x * TILE + TILE / 2, y: y * TILE + TILE / 2, got: false,
@@ -339,7 +360,25 @@
       })),
       exit: { x: def.exit[0] * TILE, y: def.exit[1] * TILE, w: 40, h: 64 },
       spawn: { x: def.spawn[0], y: def.spawn[1] },
-      lights: def.lights.map((L) => Object.assign({}, L)),
+      lights: (function () {
+        const ls = def.lights.map((L) => Object.assign({}, L));
+        // 灯记得你上一局死在哪：离那个位置最近的锥光会更不安地扫动
+        const death = (save.lastEvents || []).find((e) => e.type === 'death');
+        if (death) {
+          const dx = death.u * cols * TILE;
+          let best = null, bd = 1e9;
+          for (const L of ls) {
+            if (L.type !== 'cone') continue;
+            const d = Math.abs(L.x - dx);
+            if (d < bd) { bd = d; best = L; }
+          }
+          if (best && bd < 520) {
+            best.amp = Math.min(0.6, (best.amp || 0.3) + 0.16);
+            best.phase = (best.phase || 0) + 0.7;
+          }
+        }
+        return ls;
+      })(),
       time: 0, deaths: 0, lockMsgT: 0, lockFlash: 0, marks: [], clueT: -1, trace: [], traceT: 0,
       prevTrace: save.lastTrace || null, prevEvents: save.lastEvents || null, wallTraces,
       events: [], holdT: 0, holdBest: 0, holdAt: null, events3: null,
@@ -360,6 +399,7 @@
   function startLevel(i) {
     levelIndex = clamp(i, 0, LEVELS.length - 1);
     level = makeLevel(LEVELS[levelIndex]);
+    if (levelIndex === 0) runClean = true;   // 每一轮从头开始记「有没有被光看见过」
     player = {
       x: level.spawn.x, y: level.spawn.y, w: 22, h: 24,
       vx: 0, vy: 0, face: 1, onGround: false, coyote: 0, jumpBuf: 0,
@@ -531,6 +571,7 @@
       if (L.type !== 'cone') continue;
       if (!litBy(L, gameTime, cx, cy)) continue;
       curious = { L: L, ang: coneAngle(L, gameTime), hold: 3.6, fade: 0.9 };
+      achieve('stare');
       if (Audio.curious) Audio.curious();
       return;
     }
@@ -816,6 +857,7 @@
     if (lit && level.def.clue && level.clueT < 0) level.clueT = 0;
     if (lit) {
       p.exposure = Math.min(1, p.exposure + EXP_UP * dt);
+      if (p.exposure > 0.1) runClean = false;   // 被光看到，就再也不是「无痕」了
       if (p.exposure >= 1) { die('light'); return; }
       if (Math.random() < dt * 24) burst(p.x + p.w / 2 + rnd(-9, 9), p.y + rnd(0, p.h), 'rgba(255,255,255,1)', 1);
     } else {
@@ -854,6 +896,12 @@
       level.lockMsgT -= dt;
       if (level.lockMsgT <= 0) { level.lockFlash = 0.55; level.lockMsgT = 0.75; }
     }
+
+    // ---- 结局分歧：集齐碎片后不去开门、而是伪装着不动，就慢慢融回墙里（成为砖）----
+    if (levelIndex === LEVELS.length - 1 && keysLeft() === 0 && !rectsOverlap(body, level.exit)) {
+      level.stayT = p.merged ? (level.stayT || 0) + dt : 0;
+      if (level.stayT >= 5) { triggerBrick(); return; }
+    } else if (level.stayT) level.stayT = 0;
 
     updateParticles(dt);
     updateCamera(dt);
@@ -899,8 +947,25 @@
     Audio.setHeat(0);
     // 记忆演出期间 step() 不跑，白闪会卡住不衰减，所以不设 fx
     // 每过一关，记忆图多拼出一块；最后一关是翻转
-    if (levelIndex === LEVELS.length - 1) { state = 'ending'; endT = 3.4; }
+    if (levelIndex === LEVELS.length - 1) {
+      endingKind = runClean ? 'shade' : 'light';
+      achieve(endingKind);
+      state = 'ending'; endT = 3.4;
+    }
     else { state = 'memory'; memT = 2.4; }
+  }
+
+  // 成为砖：不走进门，选择融回墙里
+  function triggerBrick() {
+    endingKind = 'brick';
+    achieve('brick');
+    save.depth = Math.max(save.depth, LEVELS.length);
+    persist();
+    el.hud.classList.add('hide');
+    el.touch.classList.add('hide');
+    el.scrClear.classList.add('hide');
+    Audio.setHeat(0);
+    state = 'ending'; endT = 3.4;
   }
 
   function nextOrMenu() {
@@ -1104,6 +1169,16 @@
 
     if (!level) { drawTitleBackdrop(); return; }
 
+    // 远景视差：以 0.4 倍速度平移（越远越慢），制造纵深
+    if (level.parallax) {
+      ctx.setTransform(DPR, 0, 0, DPR, (shx - camX * 0.4) * DPR, shy * 0.4 * DPR);
+      for (let i = 0; i < level.parallax.length; i++) {
+        const b = level.parallax[i];
+        ctx.fillStyle = 'rgba(0,0,0,' + b.a + ')';
+        ctx.fillRect(b.x, b.y, b.w, b.h);
+      }
+    }
+
     ctx.setTransform(DPR, 0, 0, DPR, (shx - camX) * DPR, shy * DPR);
     drawTiles(camX);
     drawLegacy();
@@ -1122,7 +1197,12 @@
     ctx.drawImage(lcan, 0, 0, VIEW_W, VIEW_H);
     ctx.globalCompositeOperation = 'source-over';
 
+    // 前景粒子用的是世界坐标：这里必须补回相机偏移，否则宽关卡里会整体右偏 camX
+    ctx.setTransform(DPR, 0, 0, DPR, (shx - camX) * DPR, shy * DPR);
     drawParticles(true);
+
+    // 以下是贴屏幕的后期层，回到屏幕坐标，避免跟着抖动一起晃
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     drawExposureVignette();
     drawFrameEdges();
 
@@ -1152,15 +1232,41 @@
       ctx.fillRect(0, 0, VIEW_W, VIEW_H);
     }
 
-    // 结局：先翻转（同一空间，换一个身份重看一遍），再白屏
+    // 结局：三种「对剧本的态度」，各自不同的收场
     if (state === 'ending') {
-      if (endT > 1.5) {
-        ctx.fillStyle = '#0a0b0d';
+      const kk = clamp((3.4 - endT) / 1.9, 0, 1);
+      if (endingKind === 'light') {
+        // 成为灯：先翻转（同一空间，换一个身份重看一遍），再白屏
+        if (endT > 1.5) {
+          ctx.fillStyle = '#0a0b0d';
+          ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+          drawMemoryStage(kk, true);
+        } else {
+          ctx.fillStyle = 'rgba(255,255,255,' + Math.min(1, 1 - endT / 1.5) + ')';
+          ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+        }
+      } else if (endingKind === 'brick') {
+        // 成为砖：不走进门，融回墙里——画面被砖色吞掉，只剩两道闭眼刻痕
+        ctx.fillStyle = 'rgba(6,6,6,' + kk + ')';
         ctx.fillRect(0, 0, VIEW_W, VIEW_H);
-        drawMemoryStage(clamp((3.4 - endT) / 1.9, 0, 1), true);
+        if (kk > 0.4) {
+          const a = (kk - 0.4) / 0.6;
+          ctx.fillStyle = 'rgba(255,255,255,' + (0.10 * a) + ')';
+          ctx.fillRect(VIEW_W / 2 - 7, VIEW_H / 2 - 14, 14, 1);
+          ctx.fillStyle = 'rgba(255,255,255,' + (0.22 * a) + ')';
+          ctx.fillRect(VIEW_W / 2 - 6, VIEW_H / 2, 5, 1);
+          ctx.fillRect(VIEW_W / 2 + 1, VIEW_H / 2, 5, 1);
+        }
       } else {
-        ctx.fillStyle = 'rgba(255,255,255,' + Math.min(1, 1 - endT / 1.5) + ')';
+        // 无痕：一路没被看见——你连痕迹都没留下，白点缩到无
+        const a = clamp((3.4 - endT) / 2.6, 0, 1);
+        ctx.fillStyle = 'rgba(0,0,0,' + (a * 0.98) + ')';
         ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+        if (a < 0.82) {
+          const r = 3 * (1 - a / 0.82) + 0.5;
+          ctx.fillStyle = 'rgba(255,255,255,' + (0.8 * (1 - a / 0.82)) + ')';
+          ctx.beginPath(); ctx.arc(VIEW_W / 2, VIEW_H / 2, r, 0, Math.PI * 2); ctx.fill();
+        }
       }
     }
 
@@ -1218,6 +1324,13 @@
             ctx.fillStyle = PAL.softLine;
             ctx.fillRect(px + 3, py + 2, TILE - 6, 1);
           }
+        }
+        // 接地阴影：底面无砖时向下压一层，避免平台像浮空的条
+        if (!below) {
+          ctx.fillStyle = 'rgba(0,0,0,.10)';
+          ctx.fillRect(px, py + TILE, TILE, 3);
+          ctx.fillStyle = 'rgba(0,0,0,.05)';
+          ctx.fillRect(px, py + TILE + 3, TILE, 4);
         }
       }
     }
@@ -1951,6 +2064,9 @@
     startIntro: startIntro,
     previewMemory: (k) => { state = 'memory'; memT = 2.4 * (1 - clamp(k, 0, 1)); memFreeze = true; },
     get memoryShown() { return level ? Math.min((level.def.ms || []).length, save.depth) : 0; },
-    get negT() { return negT; }
+    get negT() { return negT; },
+    get endingKind() { return endingKind; },
+    get runClean() { return runClean; },
+    get ach() { return save.ach || {}; }
   };
 })();
