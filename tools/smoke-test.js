@@ -410,6 +410,7 @@ ok(rf.slice(1).every((r) => {
 }), '中段地面最多 2 格连续硬砖 → 随时能找到藏身黑砖（教程房除外）');
 ok(rf.every((r) => r.lights.every((L) => Math.round(L.x / 32) >= 8)), '灯全在中段（col≥8），照不到出生点');
 ok(rf.every((r) => r.lights.every((L) => Math.round(L.x / 32) <= r.cols - 8)), '灯不会压到出口区');
+ok(rf.slice(1).every((r) => r.soft.filter((s) => s[3] === 1).length >= 2), '每间房至少 2 块空中平台（有纵向结构）');
 
 if (process.env.MAP) {
   U.assembleRun(2026);

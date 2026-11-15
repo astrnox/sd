@@ -443,47 +443,58 @@
   //  2) 中段地面按「黑,黑,灰」循环 → 任意位置 1 格内必有黑砖可藏；
   //  3) 灯只放在中段 col 9..cols-8，均匀分布，永远照不到出生点；
   //  4) 碎片放在中段某块黑砖上，走过去顺手拿；出口在最右端。
-  function genRoom(seed, act, i, bias) {
-    const rr = seededRng(((seed ^ (act * 7919) ^ (i * 104729) ^ 0x9e3779b9) >>> 0));
-    let B = 2 + (act >= 1 ? 1 : 0);
-    if (bias > 0) B += 1; else if (bias < 0) B -= 1;
-    B = Math.max(1, Math.min(4, B));
-    const cols = 30 + act * 3 + Math.floor(rr() * 4);        // 30..~40
+  /* ===== 手工房间池（Phase 1.5：程序生成 → 手工编排）=====
+     地板黑砖由「3 黑 + 2 灰」统一生成（保证任意位置 2 格内必有掩体），
+     平台与灯位逐间手工编排，保证每间房结构不同、不"像生成的"。 */
+  const ROOM_RECIPES = [
+    { // A 交叉：两块低台夹一盏灯
+      patch0: 0,
+      plats: [[9, 12, 4], [18, 13, 3], [26, 12, 4]],
+      lights: [9, 26], key: [19, 14]
+    },
+    { // B 错落：平台高低起伏
+      patch0: 2,
+      plats: [[6, 13, 3], [12, 12, 3], [18, 13, 4], [25, 12, 3]],
+      lights: [12, 25], key: [17, 14]
+    },
+    { // C 双台：中段两块抬高的台
+      patch0: 1,
+      plats: [[10, 12, 3], [15, 13, 4], [22, 12, 4]],
+      lights: [10, 22], key: [16, 14]
+    },
+    { // D 长廊：三盏灯，节奏最紧
+      patch0: 3, cols: 36,
+      plats: [[8, 12, 5], [16, 13, 4], [24, 12, 5]],
+      lights: [8, 16, 24], key: [18, 14]
+    },
+    { // E 高台：中间一块长台
+      patch0: 4,
+      plats: [[7, 13, 3], [14, 12, 5], [23, 13, 3]],
+      lights: [13, 24], key: [16, 14]
+    }
+  ];
+
+  function buildRoom(rec) {
+    const cols = rec.cols || 34;
+    const p0 = rec.patch0 || 0;
     const hard = [[0, 0, 1, 17], [0, 15, cols, 2], [cols - 1, 0, 1, 17]];
     const soft = [];
-    // 地面：出生区(1-3)、出口区(cols-4..) 留灰；中段「3 黑 + 2 灰」成块（最多 2 格灰缺口，跳得过去）
+    // 地板黑砖：3 黑 + 2 灰，按 patch0 错相位（每间房图案不同），最多 2 格灰缺口
     for (let x = 4; x <= cols - 5; x++) {
-      if (x % 5 < 3) soft.push([x, 15, 1, 2]);
+      if (((x - p0) % 5 + 5) % 5 < 3) soft.push([x, 15, 1, 2]);
     }
-    // 空中黑平台：2-4 个，行 11-12（跳高 4 格内）、横向错落 → 纵向结构与额外藏身
-    const nP = 2 + act;
-    for (let k = 0; k < nP; k++) {
-      const w = 3 + (k % 2);                                  // 3 或 4
-      let px = Math.round(4 + ((k + 0.5) / nP) * (cols - 10));
-      px = Math.max(3, Math.min(cols - 7 - w, px));
-      const py = 11 + (k % 2);                                // 行 11 / 12
-      soft.push([px, py, w, 1]);
-    }
-    // 灯：只在中段，均匀分布，照不到出生点
-    const lights = [];
-    const lx0 = 9, lx1 = Math.max(lx0 + 1, cols - 8);
-    for (let b = 0; b < B; b++) {
-      const bx = Math.round(lx0 + ((b + 0.5) / B) * (lx1 - lx0));
-      lights.push({
-        type: 'cone', x: bx * TILE, y: 40, angle: Math.PI / 2,
-        spread: 0.32 + act * 0.03, range: 560,
-        amp: 0.14 + act * 0.05, speed: 0.42 + act * 0.14, phase: rr() * 6.283
-      });
-    }
-    // 碎片：放在中段某块黑砖列的地面（走过去就拿到）
-    let keyCol = Math.max(6, Math.min(cols - 8, 8 + Math.floor(rr() * Math.max(1, cols - 16))));
-    while (keyCol % 5 >= 3 && keyCol < cols - 6) keyCol++;
-    const keys = [[keyCol, 14]];
-    const exit = [cols - 3, 13];
+    // 空中黑平台（手工摆放，行 12-13 都在跳跃范围内）
+    (rec.plats || []).forEach(([x, y, w]) => soft.push([x, y, w, 1]));
+    // 灯（手工摆放）
+    const lights = (rec.lights || []).map((x, idx) => ({
+      type: 'cone', x: x * TILE, y: 40, angle: Math.PI / 2,
+      spread: 0.34, range: 560, amp: 0.16, speed: 0.5, phase: idx * 1.7
+    }));
     return {
-      id: 100 + act * 10 + i, name: '', cols,
+      id: 70, name: '', cols,
       spawn: [48, 15 * TILE - 24],
-      hard, soft, spikes: [], keys, exit, lights, ms: [], ghosts: [], scars: []
+      hard, soft, spikes: [], keys: [rec.key], exit: [cols - 3, 13],
+      lights, ms: [], ghosts: [], scars: []
     };
   }
 
@@ -491,13 +502,18 @@
     runSeed = (seed | 0) || 1;
     runRooms = [];
     for (let idx = 0; idx < ACTS * ROOMS_PER_ACT; idx++) {
-      if (idx === 0) {
-        // 第 0 间永远是手工教程关（带"灯主动来找你"的引导）——每局都从这个"啊哈"开始
-        runRooms.push(Object.assign({}, LEVELS[0], { id: 90 }));
-      } else {
-        const act = Math.floor(idx / ROOMS_PER_ACT), ii = idx % ROOMS_PER_ACT;
-        runRooms.push(genRoom(runSeed, act, ii, 0));
-      }
+      if (idx === 0) { runRooms.push(Object.assign({}, LEVELS[0], { id: 90 })); continue; }  // 每局从教程开始
+      const act = Math.floor(idx / ROOMS_PER_ACT);
+      const pos = idx % ROOMS_PER_ACT;
+      // 每一幕把 5 个模板洗牌一次（同一幕内顺序不重复），难度随幕递增
+      const rrA = seededRng(((runSeed ^ (act * 2654435761)) >>> 0));
+      const order = ROOM_RECIPES.map((_, k) => k);
+      for (let k = order.length - 1; k > 0; k--) { const j = Math.floor(rrA() * (k + 1)); const t = order[k]; order[k] = order[j]; order[j] = t; }
+      const def = buildRoom(ROOM_RECIPES[order[pos % order.length]]);
+      const mult = 1 + act * 0.22;
+      def.lights.forEach((L) => { L.speed *= mult; L.amp *= (1 + act * 0.15); });
+      def.id = 70 + idx;
+      runRooms.push(def);
     }
     return runRooms;
   }
@@ -569,13 +585,21 @@
     const nextAct = runAct + 1;
     // 最后一幕前的这一次是「假选择」：门不一样，去哪都一样；但游戏记住你选了哪扇
     const fake = nextAct >= ACTS - 1;
-    const bias = fake ? 0 : (hallSel === 0 ? 1 : (hallSel === 1 ? -1 : 0));
     if (nextAct < ACTS) {
-      const seed2 = ((runSeed ^ (0x51ed27 * (hallSel + 1))) >>> 0);
+      // 假选择时忽略所选的门 → 无论点哪扇，下一幕完全一样
+      const rrA = seededRng(((runSeed ^ (0x51ed27 * ((fake ? 0 : hallSel) + 1)) ^ (nextAct * 131)) >>> 0));
+      const order = ROOM_RECIPES.map((_, q) => q);
+      for (let q = order.length - 1; q > 0; q--) { const j = Math.floor(rrA() * (q + 1)); const t = order[q]; order[q] = order[j]; order[j] = t; }
       for (let i = 0; i < ROOMS_PER_ACT; i++) {
         const k = nextAct * ROOMS_PER_ACT + i;
-        runRooms[k] = genRoom(seed2, nextAct, i, bias);
-        if (!fake && hallSel === 2) runRooms[k].ghosts = [[Math.floor(runRooms[k].cols / 2), 12]];
+        const def = buildRoom(ROOM_RECIPES[order[i % order.length]]);
+        let mult = 1 + nextAct * 0.22;
+        if (!fake && hallSel === 0) mult += 0.18;   // 亮门：灯更快
+        if (!fake && hallSel === 1) mult -= 0.15;   // 暗门：灯更慢
+        def.lights.forEach((L) => { L.speed *= mult; L.amp *= (1 + nextAct * 0.15); });
+        if (!fake && hallSel === 2) def.ghosts = [[Math.floor(def.cols / 2), 12]];   // 记忆门：多一道刻痕
+        def.id = 70 + k;
+        runRooms[k] = def;
       }
     }
     Audio.ui();
