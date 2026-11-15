@@ -18,7 +18,8 @@
   const GRAV = 2400, RUN = 340, ACC = 2800, FRIC = 3400;
   const JUMP_V = 790, COYOTE = 0.09, JBUF = 0.12, JCUT = 0.42;
   const DASH_V = 900, DASH_T = 0.13, DASH_CD = 0.8;
-  const EXP_UP = 1 / 0.34, EXP_DN = 1 / 0.55;
+  // 暴露致死 ≈ 1.0 s（原 0.34 s 太狠：从全速到停下 + 移动到掩体根本来不及），恢复 0.55 s
+  const EXP_UP = 1 / 1.0, EXP_DN = 1 / 0.55;
   const MERGE_T = 0.08;      // 静止多久后融入
   const MERGE_V = 34;        // 低于该速度视为静止
   const SAVE_KEY = 'umbra.save.v2';
@@ -444,48 +445,45 @@
   //  3) 灯只放在中段 col 9..cols-8，均匀分布，永远照不到出生点；
   //  4) 碎片放在中段某块黑砖上，走过去顺手拿；出口在最右端。
   /* ===== 手工房间池（Phase 1.5：程序生成 → 手工编排）=====
-     地板黑砖由「3 黑 + 2 灰」统一生成（保证任意位置 2 格内必有掩体），
-     平台与灯位逐间手工编排，保证每间房结构不同、不"像生成的"。 */
+     每间房按「掩体岛 / 亮区缺口 / 灯」手工编排：
+     - 掩体岛（黑砖地板）之间最多 6 格灰缺口（0.56 s 可跨，远低于 1.0 s 致死时间）；
+     - 灯压在缺口上方：玩家等灯扫开再跨；
+     - 灯只放在 col 11..cols-8，出生点(左)与出口(右)永远安全。 */
   const ROOM_RECIPES = [
-    { // A 交叉：两块低台夹一盏灯
-      patch0: 0,
-      plats: [[9, 12, 4], [18, 13, 3], [26, 12, 4]],
-      lights: [9, 26], key: [19, 14]
+    { // A 入门：第一段缺口不点灯（先学会"跨"），后两段有灯
+      patches: [[4, 2], [11, 3], [19, 2], [26, 3]],
+      plats: [[15, 12, 3], [29, 13, 3]],
+      lights: [16, 23], key: [20, 14]
     },
-    { // B 错落：平台高低起伏
-      patch0: 2,
-      plats: [[6, 13, 3], [12, 12, 3], [18, 13, 4], [25, 12, 3]],
-      lights: [12, 25], key: [17, 14]
+    { // B 错落：掩体左右错开
+      patches: [[3, 3], [10, 2], [17, 4], [24, 2], [29, 3]],
+      plats: [[7, 12, 3], [14, 13, 4], [21, 12, 3]],
+      lights: [14, 22], key: [18, 14]
     },
-    { // C 双台：中段两块抬高的台
-      patch0: 1,
-      plats: [[10, 12, 3], [15, 13, 4], [22, 12, 4]],
-      lights: [10, 22], key: [16, 14]
+    { // C 三岛：灯压在两个主缺口上
+      cols: 36,
+      patches: [[4, 3], [11, 3], [18, 3], [25, 3], [31, 3]],
+      plats: [[8, 12, 4], [15, 13, 3], [22, 12, 4]],
+      lights: [15, 22], key: [19, 14]
     },
-    { // D 长廊：三盏灯，节奏最紧
-      patch0: 3, cols: 36,
-      plats: [[8, 12, 5], [16, 13, 4], [24, 12, 5]],
-      lights: [8, 16, 24], key: [18, 14]
+    { // D 长缺口：缺口 6 格，最考验时机
+      patches: [[4, 2], [12, 3], [20, 2], [27, 3]],
+      plats: [[8, 12, 4], [16, 11, 4], [24, 12, 4]],
+      lights: [17, 24], key: [21, 14]
     },
-    { // E 高台：中间一块长台
-      patch0: 4,
-      plats: [[7, 13, 3], [14, 12, 5], [23, 13, 3]],
-      lights: [13, 24], key: [16, 14]
+    { // E 高台：中间能跳上去的台
+      patches: [[5, 2], [13, 2], [21, 2], [28, 2]],
+      plats: [[9, 12, 5], [17, 10, 5], [25, 12, 3]],
+      lights: [16, 24], key: [18, 14]
     }
   ];
 
   function buildRoom(rec) {
     const cols = rec.cols || 34;
-    const p0 = rec.patch0 || 0;
     const hard = [[0, 0, 1, 17], [0, 15, cols, 2], [cols - 1, 0, 1, 17]];
     const soft = [];
-    // 地板黑砖：3 黑 + 2 灰，按 patch0 错相位（每间房图案不同），最多 2 格灰缺口
-    for (let x = 4; x <= cols - 5; x++) {
-      if (((x - p0) % 5 + 5) % 5 < 3) soft.push([x, 15, 1, 2]);
-    }
-    // 空中黑平台（手工摆放，行 12-13 都在跳跃范围内）
-    (rec.plats || []).forEach(([x, y, w]) => soft.push([x, y, w, 1]));
-    // 灯（手工摆放）
+    (rec.patches || []).forEach(([x, w]) => soft.push([x, 15, w, 2]));   // 掩体岛（黑砖地板）
+    (rec.plats || []).forEach(([x, y, w]) => soft.push([x, y, w, 1]));    // 空中黑平台
     const lights = (rec.lights || []).map((x, idx) => ({
       type: 'cone', x: x * TILE, y: 40, angle: Math.PI / 2,
       spread: 0.34, range: 560, amp: 0.16, speed: 0.5, phase: idx * 1.7
@@ -1118,8 +1116,7 @@
     const lit = p.merged ? false : playerLit();
     if (lit && level.def.clue && level.clueT < 0) level.clueT = 0;
     if (lit) {
-      const expUp = EXP_UP * ((mode === 'campaign' && levelIndex === 0) ? 0.35 : 1);   // 仅战役教学关放慢
-      p.exposure = Math.min(1, p.exposure + expUp * dt);
+      p.exposure = Math.min(1, p.exposure + EXP_UP * dt);
       if (p.exposure > 0.1) runClean = false;   // 被光看到，就再也不是「无痕」了
       if (p.exposure >= 1) {
         if (mode === 'campaign' && levelIndex === 0 && !level._mercy) {

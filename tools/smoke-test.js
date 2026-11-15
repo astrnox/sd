@@ -243,8 +243,11 @@ ok(U.waveCount > w0, '融合/现身时触发影压波纹（+' + (U.waveCount - w
 
 U.startLevel(1);
 frames(5);
-U.player.x = 848; U.player.y = 456;
-frames(260);
+const Lb = U.level.lights[0];
+Lb.amp = 0; Lb.angle = Math.PI / 2;
+U.player.x = Lb.x - 11; U.player.y = 15 * 32 - 24; U.player.vx = 0; U.player.vy = 0;
+U.player.exposure = 0.99;
+frames(20);
 ok(U.level.deaths > 0 && U.level.marks.length > 0, '被光照死后在砖面留下烧痕（' + U.level.marks.length + ' 处）');
 
 console.log('\n[9] 无演示：只留线索');
@@ -406,8 +409,8 @@ const floorType = (r, x) => r.soft.some((s) => s[0] <= x && x < s[0] + s[2] && s
 ok(rf.slice(1).every((r) => {
   let run = 0, mx = 0;
   for (let x = 5; x <= r.cols - 6; x++) { if (floorType(r, x) === 'H') { run++; mx = Math.max(mx, run); } else run = 0; }
-  return mx <= 2;
-}), '中段地面最多 2 格连续硬砖 → 随时能找到藏身黑砖（教程房除外）');
+  return mx <= 6;
+}), '掩体岛之间最多 6 格灰缺口（0.56s 可跨 < 1.0s 致死）（教程房除外）');
 ok(rf.every((r) => r.lights.every((L) => Math.round(L.x / 32) >= 8)), '灯全在中段（col≥8），照不到出生点');
 ok(rf.every((r) => r.lights.every((L) => Math.round(L.x / 32) <= r.cols - 8)), '灯不会压到出口区');
 ok(rf.slice(1).every((r) => r.soft.filter((s) => s[3] === 1).length >= 2), '每间房至少 2 块空中平台（有纵向结构）');
