@@ -403,11 +403,11 @@ ok(U.state === 'ending', '打完一整局到达结局（清 ' + roomsCleared + '
 console.log('\n[19] 房间设计公平性（不会无解 / 不会出生即死）');
 const rf = U.assembleRun(2026);
 const floorType = (r, x) => r.soft.some((s) => s[0] <= x && x < s[0] + s[2] && s[1] <= 15 && 15 < s[1] + s[3]) ? 'S' : 'H';
-ok(rf.every((r) => {
+ok(rf.slice(1).every((r) => {
   let run = 0, mx = 0;
   for (let x = 5; x <= r.cols - 6; x++) { if (floorType(r, x) === 'H') { run++; mx = Math.max(mx, run); } else run = 0; }
-  return mx <= 1;
-}), '中段地面最多 1 格连续硬砖 → 随时能找到藏身黑砖');
+  return mx <= 2;
+}), '中段地面最多 2 格连续硬砖 → 随时能找到藏身黑砖（教程房除外）');
 ok(rf.every((r) => r.lights.every((L) => Math.round(L.x / 32) >= 8)), '灯全在中段（col≥8），照不到出生点');
 ok(rf.every((r) => r.lights.every((L) => Math.round(L.x / 32) <= r.cols - 8)), '灯不会压到出口区');
 

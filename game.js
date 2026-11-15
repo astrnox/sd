@@ -451,9 +451,18 @@
     const cols = 30 + act * 3 + Math.floor(rr() * 4);        // 30..~40
     const hard = [[0, 0, 1, 17], [0, 15, cols, 2], [cols - 1, 0, 1, 17]];
     const soft = [];
-    // 地面：出生区(1-4) 与 出口区(cols-5..) 留灰；中段 黑,黑,灰 循环
-    for (let x = 5; x <= cols - 6; x++) {
-      if (x % 3 !== 2) soft.push([x, 15, 1, 2]);
+    // 地面：出生区(1-3)、出口区(cols-4..) 留灰；中段「3 黑 + 2 灰」成块（最多 2 格灰缺口，跳得过去）
+    for (let x = 4; x <= cols - 5; x++) {
+      if (x % 5 < 3) soft.push([x, 15, 1, 2]);
+    }
+    // 空中黑平台：2-4 个，行 11-12（跳高 4 格内）、横向错落 → 纵向结构与额外藏身
+    const nP = 2 + act;
+    for (let k = 0; k < nP; k++) {
+      const w = 3 + (k % 2);                                  // 3 或 4
+      let px = Math.round(4 + ((k + 0.5) / nP) * (cols - 10));
+      px = Math.max(3, Math.min(cols - 7 - w, px));
+      const py = 11 + (k % 2);                                // 行 11 / 12
+      soft.push([px, py, w, 1]);
     }
     // 灯：只在中段，均匀分布，照不到出生点
     const lights = [];
@@ -462,21 +471,13 @@
       const bx = Math.round(lx0 + ((b + 0.5) / B) * (lx1 - lx0));
       lights.push({
         type: 'cone', x: bx * TILE, y: 40, angle: Math.PI / 2,
-        spread: 0.30 + act * 0.03, range: 560,
-        amp: 0.12 + act * 0.04, speed: 0.4 + act * 0.12, phase: rr() * 6.283
+        spread: 0.32 + act * 0.03, range: 560,
+        amp: 0.14 + act * 0.05, speed: 0.42 + act * 0.14, phase: rr() * 6.283
       });
     }
-    // 空中黑平台：1-2 个（可选路线 / 额外藏身）
-    const nP = 1 + Math.floor(rr() * 2);
-    for (let k = 0; k < nP; k++) {
-      const w = 2 + Math.floor(rr() * 2);
-      const px = 6 + Math.floor(rr() * Math.max(1, cols - 13 - w));
-      const py = 11 + Math.floor(rr() * 2);
-      soft.push([px, py, w, 1]);
-    }
     // 碎片：放在中段某块黑砖列的地面（走过去就拿到）
-    let keyCol = Math.max(6, Math.min(cols - 7, 8 + Math.floor(rr() * Math.max(1, cols - 16))));
-    while (keyCol % 3 === 2 && keyCol < cols - 7) keyCol++;
+    let keyCol = Math.max(6, Math.min(cols - 8, 8 + Math.floor(rr() * Math.max(1, cols - 16))));
+    while (keyCol % 5 >= 3 && keyCol < cols - 6) keyCol++;
     const keys = [[keyCol, 14]];
     const exit = [cols - 3, 13];
     return {
@@ -489,7 +490,15 @@
   function assembleRun(seed) {
     runSeed = (seed | 0) || 1;
     runRooms = [];
-    for (let a = 0; a < ACTS; a++) for (let i = 0; i < ROOMS_PER_ACT; i++) runRooms.push(genRoom(runSeed, a, i, 0));
+    for (let idx = 0; idx < ACTS * ROOMS_PER_ACT; idx++) {
+      if (idx === 0) {
+        // 第 0 间永远是手工教程关（带"灯主动来找你"的引导）——每局都从这个"啊哈"开始
+        runRooms.push(Object.assign({}, LEVELS[0], { id: 90 }));
+      } else {
+        const act = Math.floor(idx / ROOMS_PER_ACT), ii = idx % ROOMS_PER_ACT;
+        runRooms.push(genRoom(runSeed, act, ii, 0));
+      }
+    }
     return runRooms;
   }
 
@@ -607,9 +616,17 @@
       }
       if (sel) { ctx.fillStyle = '#0a0a0a'; ctx.fillRect(cx - 20, y0 + h + 12, 40, 3); }
     }
+    // 输入提示（纯图形）：← → 选择，▶ 确认
+    const hy = VIEW_H - 20;
+    ctx.fillStyle = 'rgba(255,255,255,.42)';
+    ctx.beginPath(); ctx.moveTo(VIEW_W / 2 - 44, hy); ctx.lineTo(VIEW_W / 2 - 34, hy - 5); ctx.lineTo(VIEW_W / 2 - 34, hy + 5); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(VIEW_W / 2 - 16, hy); ctx.lineTo(VIEW_W / 2 - 26, hy - 5); ctx.lineTo(VIEW_W / 2 - 26, hy + 5); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    ctx.beginPath(); ctx.moveTo(VIEW_W / 2 + 12, hy - 6); ctx.lineTo(VIEW_W / 2 + 12, hy + 6); ctx.lineTo(VIEW_W / 2 + 23, hy); ctx.closePath(); ctx.fill();
+
     for (let a = 0; a < ACTS; a++) {
       ctx.fillStyle = a < runAct ? 'rgba(255,255,255,.85)' : (a === runAct ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.16)');
-      ctx.fillRect(VIEW_W / 2 - 34 + a * 24, VIEW_H - 40, 14, 4);
+      ctx.fillRect(VIEW_W / 2 - 34 + a * 24, VIEW_H - 44, 14, 4);
     }
   }
 
@@ -645,6 +662,19 @@
   }
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
+  // 门厅：鼠标直接点门
+  cv.addEventListener('click', (e) => {
+    if (state !== 'doorhall') return;
+    const rect = cv.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * VIEW_W;
+    const n = 3, w = 118, gap = 56;
+    const totalW = n * w + (n - 1) * gap;
+    const x0 = (VIEW_W - totalW) / 2;
+    for (let i = 0; i < n; i++) {
+      const dx = x0 + i * (w + gap);
+      if (x >= dx && x <= dx + w) { hallSel = i; hallChoose(); return; }
+    }
+  });
 
   el.touch.querySelectorAll('.tbtn').forEach((b) => {
     const k = b.dataset.k;
