@@ -410,7 +410,7 @@ ok(rf.slice(1).every((r) => {
   let run = 0, mx = 0;
   for (let x = 5; x <= r.cols - 6; x++) { if (floorType(r, x) === 'H') { run++; mx = Math.max(mx, run); } else run = 0; }
   return mx <= 6;
-}), '掩体岛之间最多 6 格灰缺口（0.56s 可跨 < 1.0s 致死）（教程房除外）');
+}), '掩体岛之间最多 6 格灰缺口（可跨）（教程房除外）');
 ok(rf.every((r) => r.lights.every((L) => Math.round(L.x / 32) >= 8)), '灯全在中段（col≥8），照不到出生点');
 ok(rf.every((r) => r.lights.every((L) => Math.round(L.x / 32) <= r.cols - 8)), '灯不会压到出口区');
 ok(rf.slice(1).every((r) => r.soft.filter((s) => s[3] === 1).length >= 2), '每间房至少 2 块空中平台（有纵向结构）');

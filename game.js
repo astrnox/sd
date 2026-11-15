@@ -18,8 +18,8 @@
   const GRAV = 2400, RUN = 340, ACC = 2800, FRIC = 3400;
   const JUMP_V = 790, COYOTE = 0.09, JBUF = 0.12, JCUT = 0.42;
   const DASH_V = 900, DASH_T = 0.13, DASH_CD = 0.8;
-  // 暴露致死 ≈ 1.0 s（原 0.34 s 太狠：从全速到停下 + 移动到掩体根本来不及），恢复 0.55 s
-  const EXP_UP = 1 / 1.0, EXP_DN = 1 / 0.55;
+  // 暴露致死 0.6 s：0.34 s 太狠（来不及反应）、1.0 s 太松（能在灯下散步）。0.6 s = 停下(0.1s)+挪一格勉强够，误判即死
+  const EXP_UP = 1 / 0.6, EXP_DN = 1 / 0.55;
   const MERGE_T = 0.08;      // 静止多久后融入
   const MERGE_V = 34;        // 低于该速度视为静止
   const SAVE_KEY = 'umbra.save.v2';
@@ -486,7 +486,7 @@
     (rec.plats || []).forEach(([x, y, w]) => soft.push([x, y, w, 1]));    // 空中黑平台
     const lights = (rec.lights || []).map((x, idx) => ({
       type: 'cone', x: x * TILE, y: 40, angle: Math.PI / 2,
-      spread: 0.34, range: 560, amp: 0.16, speed: 0.5, phase: idx * 1.7
+      spread: 0.38, range: 560, amp: 0.22, speed: 0.65, phase: idx * 1.7
     }));
     return {
       id: 70, name: '', cols,
@@ -508,8 +508,8 @@
       const order = ROOM_RECIPES.map((_, k) => k);
       for (let k = order.length - 1; k > 0; k--) { const j = Math.floor(rrA() * (k + 1)); const t = order[k]; order[k] = order[j]; order[j] = t; }
       const def = buildRoom(ROOM_RECIPES[order[pos % order.length]]);
-      const mult = 1 + act * 0.22;
-      def.lights.forEach((L) => { L.speed *= mult; L.amp *= (1 + act * 0.15); });
+      const sm = 1 + act * 0.3;
+      def.lights.forEach((L) => { L.speed *= sm; L.amp *= (1 + act * 0.25); L.spread += act * 0.03; });
       def.id = 70 + idx;
       runRooms.push(def);
     }
@@ -591,10 +591,10 @@
       for (let i = 0; i < ROOMS_PER_ACT; i++) {
         const k = nextAct * ROOMS_PER_ACT + i;
         const def = buildRoom(ROOM_RECIPES[order[i % order.length]]);
-        let mult = 1 + nextAct * 0.22;
-        if (!fake && hallSel === 0) mult += 0.18;   // 亮门：灯更快
+        let mult = 1 + nextAct * 0.3;
+        if (!fake && hallSel === 0) mult += 0.2;    // 亮门：灯更快
         if (!fake && hallSel === 1) mult -= 0.15;   // 暗门：灯更慢
-        def.lights.forEach((L) => { L.speed *= mult; L.amp *= (1 + nextAct * 0.15); });
+        def.lights.forEach((L) => { L.speed *= mult; L.amp *= (1 + nextAct * 0.25); L.spread += nextAct * 0.03; });
         if (!fake && hallSel === 2) def.ghosts = [[Math.floor(def.cols / 2), 12]];   // 记忆门：多一道刻痕
         def.id = 70 + k;
         runRooms[k] = def;
