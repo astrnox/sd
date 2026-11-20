@@ -2384,7 +2384,7 @@
     wakeT = 2.4;
     el.scrTitle.classList.add('hide');
   }
-  $('#btnStart').addEventListener('click', () => beginRun());
+  $('#btnStart').addEventListener('click', startIntro);   // 主入口回到手工设计的 5 关战役
   $('#btnLevels').addEventListener('click', () => {
     Audio.init(); Audio.ui();
     el.lvList.classList.toggle('hide');
