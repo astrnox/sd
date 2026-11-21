@@ -1,4 +1,10 @@
-# UMBRA《暗隙》技术方案（GDD 全案 · 技术板块）
+# NO SUCH PERSON《查无此人》技术方案（GDD 全案 · 技术板块）
+
+> ℹ️ **内部标识符说明**：本文出现的 `window.UMBRA`、`umbra.save.v2`、`umbra-demo/`、`UMBRA-TOKEN` 等为**旧版内部代号**（代码事实：调试出口 / 存档键 / 历史工作目录 / 提示词 token），为保持与源码及历史记录一致而原样保留；产品现名为 **NO SUCH PERSON《查无此人》**。
+
+
+
+> ⚠️ **当前形态声明（2026-11-21 / Build 1.2）**：本文件含早期设计记录，其中「一局 / 15 房房间池 / 门厅 / 每日种子 / 速通榜」等均为**已废弃草案**——相关代码已从 `game.js` 移除，成品只有 **5 关手工战役**（列名/点名/空档/升格/注销），关卡在精不在多，每关有不可替代的存在意义。请以 `README.md` 与 `docs/NO_SUCH_PERSON_五关设计说明.md` 为当前口径；本文以下内容仅作历史设计档案保留。
 
 > **本文档的字段边界**：工期人日、里程碑周数、团队配置、引擎版本、性能与内存预算、目标分辨率与帧率 —— 由技术规划师（tech-planner）产出（T5 / T6 / T7 / T11）。
 > 玩法数值（T1–T4、T8、T9）、竞品数据（T12）、美术资源量（T10）**一律只读引用并标编号**，本文不做任何改写或推算。凡引用处格式为 `0.6 s（→T2）`。
@@ -45,7 +51,7 @@
 
 1. `dist/game.js` 必须是**单个 IIFE**，与今天 `game.js`（L13 `(function () {` / L1956 `})();`）结构一致 —— 保证 `file://`、`<script src>`、内联注入三种加载方式都成立。
 2. 构建**不做**转译、不做压缩、不做 tree-shaking。理由：产物必须可读可 diff（`mkshot` 与 `smoke-test` 都直接读 `game.js` 源码，见 `tools/smoke-test.js` L9）。注释剥离是**可选开关** `--strip`，只在发布打包时启用（见 §6 包体预算）。
-3. 拼接顺序由 `src/manifest.json` 显式声明，CI 断言「构建产物加载后 `window.UMBRA` 存在」（复用现有 `smoke-test.js` L85–86 的检查）。
+3. 拼接顺序由 `src/manifest.json` 显式声明，CI 断言「构建产物加载后 `@@PROT_WINDOW_NO SUCH PERSON@@` 存在」（复用现有 `smoke-test.js` L85–86 的检查）。
 
 > **本条不改动任何产品约束**：「零依赖 / 零构建（对使用者）/ 零外部请求」全部保留。这里新增的只是一个**开发者侧**的 60 行脚本，使用者永远拿不到它。
 
@@ -66,7 +72,7 @@
 | 7 | `src/60-render-world.js` | 世界层绘制（砖、遗迹、痕迹、实体、粒子） | 00,30 | L1184–1224 `drawTiles` / L1229–1239 `closedEyesOnBrick` / L1241–1302 `drawLegacy` / L1305–1317 `drawMarks` / L1321–1340 `drawWaves` / L1342–1358 `drawSpikes` / L1360–1390 `drawKeys` / L1392–1396 `nearPlayer` / L1398–1445 `drawExit` / L1448–1461 `drawEyeGlow` / L1463–1550 `drawPlayer` / L1552–1560 `roundRect` / L1562–1575 `drawParticles` / L1764–1779 `drawTitleBackdrop` | 480 |
 | 8 | `src/70-render-light.js` | 光照层、看守眼、后期三层、噪点、DPR/分辨率策略 | 00,30,40 | L913–919 `resizeCanvas` / L922–938 `ensureNoise` / L1577–1622 `drawLightLayer` / L1624–1633 `drawBulb` / L1637–1661 `drawWarden` / L1663–1671 `drawCone` / L1673–1680 `hazeGlow` / L1682–1698 `coneFan` / L1700–1717 `drawPoint` / L1719–1742 `drawLaser` / L1744–1754 `drawExposureVignette` / L1756–1762 `drawFrameEdges` | 340 |
 | 9 | `src/80-render-story.js` | 记忆演出 / 开场轮换 / 翻转结局（**独立时钟**） | 00,30 | L944–967 `drawEventMark` / L969–1039 `drawMemoryStage` / L1042–1081 `drawWake` | 190 |
-| 10 | `src/90-app.js` | 全局可变状态、输入、HUD、界面状态切换、主循环、`render()` 编排、调试出口 | 全部 | L262–273 `$,el` / L276–293 全局状态 / L295–299 存档读写 / L385–409 `onKeyDown,onKeyUp` / L411–435 触屏 / L1083–1182 `render` / L1782–1870 `fmtTime,buildLvPips,syncKeys,updateHud,toast,toTitle,togglePause,toggleMute,buildLevelList` / L1873–1909 `frame` / L1912–1938 事件绑定 / L1940–1955 `window.UMBRA` | 545 |
+| 10 | `src/90-app.js` | 全局可变状态、输入、HUD、界面状态切换、主循环、`render()` 编排、调试出口 | 全部 | L262–273 `$,el` / L276–293 全局状态 / L295–299 存档读写 / L385–409 `onKeyDown,onKeyUp` / L411–435 触屏 / L1083–1182 `render` / L1782–1870 `fmtTime,buildLvPips,syncKeys,updateHud,toast,toTitle,togglePause,toggleMute,buildLevelList` / L1873–1909 `frame` / L1912–1938 事件绑定 / L1940–1955 `@@PROT_WINDOW_NO SUCH PERSON@@` | 545 |
 | | **合计** | | | | **2,620** |
 
 > 2,620 行 = 1,956 行 × 1.34。增量来自：每模块头（职责/依赖/不变量）约 12 行 × 10 = 120 行；显式依赖声明与导出对象约 8 行 × 10 = 80 行；被拆分函数补回的签名与上下文 ≈ 460 行。**运行时成本为 0**（构建拼接后仍是同一份代码）。
@@ -84,7 +90,7 @@
 **明确「留在原地、不重构」的三项**（防止过度设计）：
 
 1. **全局可变状态**（L276–293：`DPR / state / level / player / cam / particles / save / input…`）在 M1 阶段**原样留在 `90-app.js` 顶部**，不引入依赖注入、不引入事件总线、不改成 class。理由：这些变量被 60+ 个函数直接读写，改造成本 ≈ 15 人日而收益为零。
-2. **`window.UMBRA` 调试出口**（L1940–1955）原样保留且**扩展**。`smoke-test.js` 全靠它做黑盒断言（L85），`mkshot.js` 靠它注入坐标（`post` 脚本 L21–24）。任何"清理全局污染"的念头都要先过测试这一关。
+2. **`@@PROT_WINDOW_NO SUCH PERSON@@` 调试出口**（L1940–1955）原样保留且**扩展**。`smoke-test.js` 全靠它做黑盒断言（L85），`mkshot.js` 靠它注入坐标（`post` 脚本 L21–24）。任何"清理全局污染"的念头都要先过测试这一关。
 3. **`FX` 开关对象**（L27：`{warden,tide,burn,shard,pressure}`）保留为运行时可变对象，作为**降级开关**的接入点（§3.5 与 §6 的档位开关直接读写它）。
 
 ### 2.3 顺手修掉的三处实现债（都在 M1/M2 内，不单列里程碑）
@@ -624,7 +630,7 @@ gzip 实测压缩比：未剥离 25,243 ÷ 88,603 = **0.2849**；**剥离后 21,
 | **M2 光照与性能** | 5 | W8–W12 | ① 渐变缓存 + 光照层半分辨率开关；② 自适应降档（3 档，见 §3.4）；③ DPR 分档（1.0 / 1.5 / 2.0）；④ 中端/低端真机实测报告（帧时分布 + 内存快照）；⑤ 三档预算表复算校准 | ①低端安卓真机（2 GB / 骁龙 4xx 级）**连续 30 min ≥ 58 fps 且无一次掉到 < 45 fps**；②桌面 p99 ≤ 16.7 ms；③**稳态内存 ≤ 80 MB（→T7，只读）**，实测值与 §6.2 模型值偏差 ≤ 20%；④同屏 7 盏锥灯时 p95 ≤ 16.7 ms（拐点验证，公式见 §3.2） | M1 |
 | **M3 内容与系统** | 7 | W13–W19 | ① Room Schema v1 + 房间池抽取器（加权/不重复/教学位固定/难度单调）；② 每局相位种子（GDD I7）+ `?seed=` 复现；③ 存档 v3 + 8 条迁移用例；④ 记忆演出时间轴固化（`clock.story`）；⑤ 音频限流 + 移动端 resume 兜底；⑥ 房间内容制作（**内容量按 playtest 定稿（→T9，草案中位 6 房间/局）**；美术部分按 art-director 定稿 T10） | ①1000 次抽取：无重复、教学位恒在第 1、难度序数单调；②同 `?seed` 三次加载灯相位完全一致；③8 条迁移用例全绿（§4.4）；④3 个不同 seed 各跑 20 局无异常、无 NaN；⑤4G 首访首屏可交互 < 3 s | M2 ／ **内容量依赖 playtest 定稿（→T9）** |
 | **M4 打磨与外部测试** | 4 | W20–W23 | ① 跨浏览器矩阵报告（Chromium / WebKit / Firefox × 桌面 + iOS + Android）；② 触屏与 pointer 边界用例；③ playtest 埋点接入（GDD 10.4 五项，纯本地）；④ 包体与首帧终测；⑤ 无障碍兜底（键位说明仍无文字） | ①3 引擎 × 9 截图 diff ≤ 0.1%，全通过；②iOS Safari 音频在首次触摸后可发声（录屏举证）；③soak 30 min 内存增长 **< 2 MiB**、无计时漂移（`level.time` 与墙钟偏差 < 0.5%）；④**发布口径**（`--strip`）raw ≤ 100,000 B 且 gzip 后 ≤ 28,672 B（28 KiB），见 §6.4 ④ | M3 |
-| **M5 发布准备** | 3 | W24–W26 | ① `--strip` 发布构建 + 静态托管包（`dist/`）；② 版本与变更记录；③ 最终 soak + 三档真机回归；④ 门户版构建目标（**条件触发，见 §7.3**） | ①发布包可 `file://` 双击运行且 `window.UMBRA` 存在；②三档真机各 30 min 无崩溃；③soak 内存增长 < 2 MiB（复测）；④若触发门户版：包体与首帧实测数据登记（EXT-01/02） | M4 |
+| **M5 发布准备** | 3 | W24–W26 | ① `--strip` 发布构建 + 静态托管包（`dist/`）；② 版本与变更记录；③ 最终 soak + 三档真机回归；④ 门户版构建目标（**条件触发，见 §7.3**） | ①发布包可 `file://` 双击运行且 `@@PROT_WINDOW_NO SUCH PERSON@@` 存在；②三档真机各 30 min 无崩溃；③soak 内存增长 < 2 MiB（复测）；④若触发门户版：包体与首帧实测数据登记（EXT-01/02） | M4 |
 
 **关键路径**（串行，任一延误直接顺延总工期）：
 
@@ -780,7 +786,7 @@ M0(构建+CI) → M1(模块化+截图基线) → M2(光照性能+真机) → M3(
 |---|---|---|
 | 运行环境 | `vm.createContext` + 手写 Canvas2D 桩（全 noop，`createRadialGradient` 返回 `{addColorStop}`）+ DOM 桩（`makeEl`/`makeChild`/`qs` 缓存 + `classList` 用 `Set` 模拟） | L11–54 |
 | 时钟注入 | `performance.now: () => t`，`frames(n)` 每次 `t += 16.667` 再手动触发 `rafCb` | L57, L96–103 |
-| 黑盒入口 | 全部经 `window.UMBRA`（L85–86），**不 require 内部函数** | L85 |
+| 黑盒入口 | 全部经 `@@PROT_WINDOW_NO SUCH PERSON@@`（L85–86），**不 require 内部函数** | L85 |
 | 断言分组 | 13 组 `[1]`–`[13]`：关卡数据合法性 / 主循环 6 s 空跑 / 融合判定 / 墙中碎片 / 灯"愣住" / 硬砖不可融合 / 跳跃冲刺 / 暂停 / 表现层创意 / 无演示 / 记忆片段 / 演出与翻转 / 事件记忆 | L105–332 |
 | 失败处理 | `process.exit(fail ? 1 : 0)`，可直接作 CI 门禁 | L336 |
 
@@ -813,7 +819,7 @@ M0(构建+CI) → M1(模块化+截图基线) → M2(光照性能+真机) → M3(
 | 3 | 真截图 | 保留 `toDataURL → <img>`（**必须保留**，这是规避合成层的关键），再由 Playwright 对 `#stage` 截图落 PNG | 纯 Playwright 截会拍出空白画面 —— 这是现有方案最重要的经验 |
 | 4 | 基线管理 | `tests/baseline/{00-title,01-level1,…,08-wall}.png` 共 9 张（对应 `screenshots/` 现有 9 张实测文件）；更新基线必须走 PR 并附 diff 图 | 防"随手重生基线"把回归吞掉 |
 
-**场景清单（9 张，沿用现有验收截图）**：标题 / L1 起始 / L3 巡灯 / 线索淡入 / 上局痕迹 / 记忆演出 `/50%` / 翻转结局 / 开场轮换 / 墙中碎片。
+**场景清单（9 张，沿用现有验收截图）**：标题 / L1 起始 / L3 空档 / 线索淡入 / 上局痕迹 / 记忆演出 `/50%` / 翻转结局 / 开场轮换 / 墙中碎片。
 
 ### 9.4 风险清单
 
@@ -828,7 +834,7 @@ M0(构建+CI) → M1(模块化+截图基线) → M2(光照性能+真机) → M3(
 | R7 | **`localStorage` 失效（隐私模式/配额满）** | 低 | 中 | 现有 try/catch 静默降级（L295–299）；v3 再加"读失败即用默认值、写失败只 console.warn" | 控制台出现 QuotaExceeded；或私有模式下 `depth` 不增长 |
 | R8 | **触屏 pointer 事件丢失导致角色粘住移动** | 中 | 中 | 已有 `pointerup/pointercancel/pointerleave` 三重兜底（L427–429）；再补 `document.blur` 与 `visibilitychange` 时清空 `input` | 松手后 `input.left/right` 仍为 true；或切前后台后角色自走 |
 | R9 | **120 Hz 固定步长在低帧率设备上累加器饥饿** | 低 | 中 | `raw` 上限 0.05 s（L1877）+ `guard < 8`（L1883）⇒ 单帧最多 6 步；降档后逻辑开销 0.5 ms 不变，饥饿风险主要来自渲染 | `gameTime` 与墙钟偏差 > 0.5%（soak 断言） |
-| R10 | **多文件拼接顺序错误导致 TDZ / 引用未定义** | 低 | 中 | manifest 显式顺序 + CI 断言 `window.UMBRA` 存在（复用 smoke-test L85）+ 产物 `file://` 冷启动冒烟 | 构建通过但冷启动报 `Cannot access before initialization` |
+| R10 | **多文件拼接顺序错误导致 TDZ / 引用未定义** | 低 | 中 | manifest 显式顺序 + CI 断言 `@@PROT_WINDOW_NO SUCH PERSON@@` 存在（复用 smoke-test L85）+ 产物 `file://` 冷启动冒烟 | 构建通过但冷启动报 `Cannot access before initialization` |
 | R11 | **未剥离构建混入发布** | 中 | 中 | §6.4 实测：源码口径 115,243 B 已超 100 KB 15.24%，发布口径 87,827–89,972 B 合规。故 `--strip` 升级为发布强制步骤 + 两条 CI 断言（产物 ≤ 100,000 B、不含整行注释）；gzip 目标 28 KiB。**且悲观档距 100 KB 仅余 10.0 KB，无空间容纳计划外模块** | 发布产物 > 100,000 B；或产物中含 `//` 注释行；或 gzip 后 > 28,672 B |
 
 ---

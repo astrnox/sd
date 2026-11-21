@@ -1,5 +1,5 @@
 <!-- 归档元信息
-文档名：UMBRA《暗隙》GDD 美术清单（Phase 2）
+文档名：NO SUCH PERSON《查无此人》GDD 美术清单（Phase 2）
 作者角色：game-design-workshop-art-director（戴艺境）
 版本：v1.1 ｜ 阶段：Phase 2 ｜ v1.0 → v1.1 变更：HUD 三处计数更正（A-34 五枚→四枚 / 6 张）、新增 A-39 触屏虚拟键（2 张），总量 38 项 / 69 张 → 39 项 / 70 张；其余数值未动
 数值基准：GDD_参数与真值表.md（T1–T12）只读引用
@@ -7,11 +7,11 @@
 字段边界：本文件只产出美术资源量（T10）与色彩/材质/动画视觉参数；玩法数值、工期人日、性能预算一律只读引用
 -->
 
-# UMBRA《暗隙》美术清单（Phase 2 · art-director 定稿）
+# NO SUCH PERSON《查无此人》美术清单（Phase 2 · art-director 定稿）
 
 | 项 | 内容 |
 |---|---|
-| 文档名称 | UMBRA《暗隙》GDD 美术清单 |
+| 文档名称 | NO SUCH PERSON《查无此人》GDD 美术清单 |
 | 文档 owner | game-design-workshop-art-director（美术资源量、画布规格、色彩规范、提示词条数） |
 | 只读引用域 | 玩法数值（→T1–T4、T8、T9）、平台约束（→T5、T6、T7）、竞品风格参照（analyst） |
 | 对齐基准 | `art/style-guide.html` v3.1（已按本文件 §8 异议 1–7 修订，两份文件同源） |
@@ -363,7 +363,7 @@
 ### 6.1 统一 style token 块（所有提示词的前置锚点，直接照抄）
 
 ```
-[UMBRA-TOKEN] monochrome value-only geometry, exactly six values: air #43484d to #5f646a,
+[@@PROT_NO SUCH PERSONTOKEN@@] monochrome value-only geometry, exactly six values: air #43484d to #5f646a,
 hard stone #3a3f44 with #4e555b lit top edge, obsidian tile #060606 with #141414 lit top edge
 and rgba(255,255,255,0.05) 1px vertical seams and 2px notches at both ends of the top edge,
 subject #000000, light #ffffff. Matte flat faces, zero gloss, zero gradient on solid mass,
@@ -377,7 +377,7 @@ only. Text-free, letter-free, number-free.
 
 ### 6.2 逐条提示词（13 条）
 
-> 所有提示词 = `[UMBRA-TOKEN]` + 下列正文。负向提示词共用一套，个别条目追加项已标注。
+> 所有提示词 = `[@@PROT_NO SUCH PERSONTOKEN@@]` + 下列正文。负向提示词共用一套，个别条目追加项已标注。
 
 **共用负向提示词（NEG-BASE）**
 ```
@@ -578,7 +578,7 @@ touches the square, the rest of the frame a flat graphite gradient from #43484d 
 | 1 | `style-guide.html` §01 空气色板标签 | 图上写出 `#4E5358 → #70757A` | `#43484d → #5f646a` | 同一节的 CSS 渐变与 `game.js` `PAL.bgTop/bgBottom`（第 31–32 行）都是 `#43484d → #5f646a`（L\* 30.31 → 42.14）。标签值不在任何代码里出现，属 v3.1 压暗后未同步的文字残留；若外包照标签取色会做出一版整体偏亮的背景 |
 | 2 | `style-guide.html` §02「两种砖明度差 52 级」 | 52 级（无单位） | 「ΔL\* = 24.72（CIELAB）」 | 「级」无定义（HSL 明度差 22.4、8-bit 均值差 57、CIELAB 差 24.72，三者互不相同）。三处口径任取其一都能算出不同数字，横向复算时必对不上 |
 | 3 | `style-guide.html` §03 伪装卡面「13% 白描边」 | 13% | 9%（±2% 呼吸，即 0.07–0.11） | 与同文件 §04 注「只留 9% 白描边」自相矛盾；`game.js` 第 1513 行实测 `0.09 + 0.02·sin(2.2t)`，上限 0.11。13% 会让伪装破绽过亮，削弱「远看认不出」 |
-| 4 | `style-guide.html` §05 DON'T「不要噪点滤镜」 | 禁止噪点滤镜 | 「禁止高频滚动噪点 / 扫描线 / 故障位移；保留 128×128 静态颗粒（`multiply`，8.2% 压暗上限）」 | 已实现的三层后期第一层就是静态噪点（`ensureNoise` 922–938、`multiply` 1129–1135），且 `UMBRA_核心卖点与塑造.md` §8 v3.1 明确把它作为「调性别扭」的修正项。原措辞会让执行者删掉一个已验收的层 |
+| 4 | `style-guide.html` §05 DON'T「不要噪点滤镜」 | 禁止噪点滤镜 | 「禁止高频滚动噪点 / 扫描线 / 故障位移；保留 128×128 静态颗粒（`multiply`，8.2% 压暗上限）」 | 已实现的三层后期第一层就是静态噪点（`ensureNoise` 922–938、`multiply` 1129–1135），且 `NO_SUCH_PERSON_核心卖点与塑造.md` §8 v3.1 明确把它作为「调性别扭」的修正项。原措辞会让执行者删掉一个已验收的层 |
 | 5 | `style-guide.html` §06 排版与 HUD 表 | 关卡号 19px / 关卡名 14px / 计时·死亡 14px / 按钮 13px 文字 | 整节作废，以 `GDD_正文.md` Ch9 §9.2 形状 HUD 为准 | 该表描述的是**带文字**的 HUD（关卡号、关卡名、计时、死亡数），与 W1「游戏画面内零字符串」铁律直接冲突，也与已实现的图标化 HUD（`#lvPips` 3×10 竖条、键帽、暴露条、8 px 状态点）完全不同。属 v2.0 早于「无文字 v3」的历史残留 |
 | 6 | 「六色 PAL」完整性 | 六色 | 「六主色 + 例外色组 9 值（近黑带 L\*0–5.43 / 近白带 L\*92.60–96.79）」+ 裁定 2 处色相偏移 | 实测运行期另有 9 个不透明色值（§4.4 逐值列出），均可用、但不登记会使「单色六值」在横向核对时不成立。另有两处真色相偏移待裁决：`rgba(255, 200−90e, 140−90e, .25+.75e)` 暴露描边（e→0 时为橙）与 `rgba(230,245,255,.35)` 白闪（B−R=25）。建议：描边改为 `rgba(255,255,255,.25+.75e)` 保无彩；白闪登记为「唯一允许的冷白偏移」 |
 | 7 | 「世界呼吸 ±7%」幅度 | ±7% | 「白侧 +5% / 黑侧 −7%（非对称）」 | `game.js` 第 1147–1153 行实测：`b>0` 时 `rgba(255,255,255, b×0.05)`、`b<0` 时 `rgba(0,0,0, −b×0.07)`。写成「±7%」会使压暗侧正确、提亮侧高估 40%，盲测调幅时会调错方向 |

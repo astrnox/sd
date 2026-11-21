@@ -6,7 +6,9 @@ const path = require('path');
 const vm = require('vm');
 
 const ROOT = path.join(__dirname, '..');
-const code = fs.readFileSync(path.join(ROOT, 'game.js'), 'utf8');
+// DIST=1 时测试 strip 构建产物（node tools/build.js --strip 生成），否则测试源码
+const TARGET = process.env.DIST ? path.join(ROOT, 'dist', 'game.js') : path.join(ROOT, 'game.js');
+const code = fs.readFileSync(TARGET, 'utf8');
 
 /* ---------- Canvas 2D 桩 ---------- */
 function makeCtx() {
@@ -39,7 +41,10 @@ function makeEl(tag) {
       toggle(c, f) { if (f === undefined) f = !this._s.has(c); f ? this._s.add(c) : this._s.delete(c); return f; },
       contains(c) { return this._s.has(c); }
     },
-    addEventListener() {}, appendChild() {}, querySelectorAll: () => [],
+    _handlers: {},
+    addEventListener(ev, fn) { (this._handlers[ev] = this._handlers[ev] || []).push(fn); },
+    fire(ev, obj) { (this._handlers[ev] || []).forEach((fn) => fn(obj || {})); },
+    appendChild() {}, querySelectorAll: () => [],
     getBoundingClientRect: () => ({ width: 960, height: 544, left: 0, top: 0 })
   };
   if (tag === 'canvas') Object.assign(el, makeCanvas());
@@ -64,20 +69,24 @@ const sandbox = {
   localStorage: {
     _d: {},
     getItem(k) { return this._d[k] || null; },
-    setItem(k, v) { this._d[k] = v; }
+    setItem(k, v) { this._d[k] = v; },
+    removeItem(k) { delete this._d[k]; }
   },
   document: {
     hidden: false,
     querySelector: qs,
     createElement: (t) => makeEl(t),
-    addEventListener() {},
+    addEventListener: (ev, fn) => { (winHandlers[ev] = winHandlers[ev] || []).push(fn); },
     visibilityState: 'visible'
   },
   setTimeout, clearTimeout, Math, Date, JSON
 };
 sandbox.window = sandbox;
 sandbox.globalThis = sandbox;
-sandbox.window.addEventListener = () => {};
+// 捕获 window 事件处理器，让暂停/失焦/按键可以被真实触发（旧版是空函数，导致这些行为零覆盖）
+const winHandlers = {};
+sandbox.window.addEventListener = (ev, fn) => { (winHandlers[ev] = winHandlers[ev] || []).push(fn); };
+function fireWindow(ev, obj) { (winHandlers[ev] || []).forEach((fn) => fn(obj || {})); }
 
 vm.createContext(sandbox);
 vm.runInContext(code, sandbox, { filename: 'game.js' });
@@ -157,8 +166,8 @@ p.x = 3 * 32; p.y = 15 * 32 - 24; p.vx = 0; p.vy = 0;
 frames(60);
 ok(p.merged === false && p.eye > 0.8, '离开黑砖后眼睛重新睁开（eye=' + p.eye.toFixed(2) + '）');
 
-console.log('\n[4] 墙中碎片：必须融合才能取');
-U.startLevel(1);
+console.log('\n[4] 墙中碎片：必须融合才能取（L3 巡灯为首座教学关）');
+U.startLevel(2);
 frames(5);
 const wk = U.level.keys[1];
 const p2 = U.player;
@@ -213,12 +222,39 @@ U.input.dashEdge = true;
 frames(10);
 ok(Math.abs(r.x - x0) > 60, '冲刺位移 ' + Math.abs(r.x - x0).toFixed(0) + 'px');
 
-console.log('\n[7] 输入边界：暂停 / 恢复');
+console.log('\n[7] 输入边界：暂停 / 恢复 / 失焦 / 按钮交互');
 U.startLevel(0);
 frames(5);
-sandbox.document.querySelector('#btnResume'); // 确保元素存在
-frames(5);
 ok(U.state === 'play', '初始为 play 状态');
+// 键盘暂停 / 恢复
+fireWindow('keydown', { code: 'KeyP', repeat: false, preventDefault() {} });
+ok(U.state === 'pause', 'KeyP 进入暂停');
+fireWindow('keydown', { code: 'KeyP', repeat: false, preventDefault() {} });
+ok(U.state === 'play', 'KeyP 再次恢复');
+// 暂停界面按跳/冲键，恢复后不得自动执行（回归暂停边沿残留）
+fireWindow('keydown', { code: 'KeyP', repeat: false, preventDefault() {} });
+fireWindow('keydown', { code: 'Space', repeat: false, preventDefault() {} });
+fireWindow('keyup', { code: 'Space' });
+fireWindow('keydown', { code: 'KeyK', repeat: false, preventDefault() {} });
+fireWindow('keydown', { code: 'KeyP', repeat: false, preventDefault() {} });
+const py = U.player.y; frames(2);
+ok(U.player.y >= py - 0.5 && U.player.dashT <= 0, '暂停期间按跳/冲键，恢复后无自动跳跃/冲刺');
+// 失焦自动暂停（blur / visibilitychange）
+fireWindow('blur', {});
+ok(U.state === 'pause', '窗口失焦自动暂停');
+fireWindow('keydown', { code: 'KeyP', repeat: false, preventDefault() {} });
+sandbox.document.hidden = true;
+fireWindow('visibilitychange', {});
+ok(U.state === 'pause', '标签页隐藏自动暂停');
+sandbox.document.hidden = false;
+fireWindow('keydown', { code: 'KeyP', repeat: false, preventDefault() {} });
+// 按钮回调：暂停 → Resume 按钮恢复 → Quit 按钮回标题
+fireWindow('keydown', { code: 'KeyP', repeat: false, preventDefault() {} });
+qs('#btnResume').fire('click');
+ok(U.state === 'play', 'Resume 按钮恢复游戏');
+fireWindow('keydown', { code: 'KeyP', repeat: false, preventDefault() {} });
+qs('#btnQuit').fire('click');
+ok(U.state === 'title', 'Quit 按钮回到标题');
 
 console.log('\n[8] 表现层创意：活碎片 / 影压 / 烧痕');
 U.startLevel(3);
@@ -365,69 +401,70 @@ ok(pM.alive === true, '第一次被照满不死（给新手一次喘息）');
 ok(U.level._mercy === true, '免死标记已用掉（只给一次）');
 ok(pM.exposure < 0.2, '免死后暴露清零');
 
-console.log('\n[17] 一局模式：房间池 + 门厅');
-const rs = U.assembleRun(2026);
-ok(rs.length === 15, '一局 15 间房（3 幕 × 5）');
-const rs2 = U.assembleRun(2026);
-ok(rs.length === rs2.length && rs.every((r, i) => r.cols === rs2[i].cols && r.lights.length === rs2[i].lights.length), '同种子房间一致（可复现）');
-ok(rs.every((r) => r.exit && r.keys.length >= 1 && r.soft.length >= 1), '每间房都有出口 / 碎片 / 可躲的黑砖');
-U.startRun(2026);
-ok(U.mode === 'run' && U.state === 'play', '开始一局 → 直接进入第一间房');
-U.level.keys.forEach((k) => { k.got = true; });
-const rx = U.level.exit;
-U.player.x = rx.x + 2; U.player.y = rx.y + 20; U.player.vx = 0; U.player.vy = 0;
-frames(5);
-ok(U.state === 'memory' || U.state === 'clear', '清房 → 先走记忆过场（不直接跳关）');
-U.openDoorHall();
-ok(U.state === 'doorhall', '幕间进入门厅（选择下次去哪）');
-U.hallChoose();
-ok(U.state === 'play' && U.runIdx === 5, '选完门 → 进入下一幕第一间房');
-
-console.log('\n[18] 一整局能从头打到结局');
-U.startRun(424242);
-let guard = 0, sawHall = false, roomsCleared = 0;
-while (U.state !== 'ending' && guard++ < 80) {
-  if (U.state === 'play') {
-    U.level.keys.forEach((k) => { k.got = true; });
-    const e = U.level.exit;
-    U.player.x = e.x + 2; U.player.y = e.y + 20; U.player.vx = 0; U.player.vy = 0;
-    frames(4);
-    if (U.state !== 'play') roomsCleared++;
-  } else if (U.state === 'memory' || U.state === 'clear') {
-    frames(200);
-  } else if (U.state === 'doorhall') {
-    sawHall = true;
-    U.hallChoose();
-  } else { break; }
-}
-ok(sawHall, '一局里至少经过一次门厅');
-ok(U.state === 'ending', '打完一整局到达结局（清 ' + roomsCleared + ' 房，' + guard + ' 步）');
-
-console.log('\n[19] 房间设计公平性（不会无解 / 不会出生即死）');
-const rf = U.assembleRun(2026);
-const floorType = (r, x) => r.soft.some((s) => s[0] <= x && x < s[0] + s[2] && s[1] <= 15 && 15 < s[1] + s[3]) ? 'S' : 'H';
-ok(rf.slice(1).every((r) => {
-  let run = 0, mx = 0;
-  for (let x = 5; x <= r.cols - 6; x++) { if (floorType(r, x) === 'H') { run++; mx = Math.max(mx, run); } else run = 0; }
-  return mx <= 6;
-}), '掩体岛之间最多 6 格灰缺口（可跨）（教程房除外）');
-ok(rf.every((r) => r.lights.every((L) => Math.round(L.x / 32) >= 8)), '灯全在中段（col≥8），照不到出生点');
-ok(rf.every((r) => r.lights.every((L) => Math.round(L.x / 32) <= r.cols - 8)), '灯不会压到出口区');
-ok(rf.slice(1).every((r) => r.soft.filter((s) => s[3] === 1).length >= 2), '每间房至少 2 块空中平台（有纵向结构）');
-
-console.log('\n[20] 难度曲线：暴露致死随进度收紧');
-U.startRun(123);
-ok(Math.abs(U.exposureSec - 1.0) < 0.01, '第一间 1.0 s（最松，好上手）');
-U.startRoom(1);  ok(Math.abs(U.exposureSec - 0.6) < 0.01, '第一幕 0.6 s');
-U.startRoom(6);  ok(Math.abs(U.exposureSec - 0.45) < 0.01, '第二幕 0.45 s');
-U.startRoom(11); ok(Math.abs(U.exposureSec - 0.35) < 0.01, '第三幕 0.35 s（最硬）');
+console.log('\n[20] 难度曲线：战役暴露致死随进度收紧');
 U.startLevel(0); ok(Math.abs(U.exposureSec - 1.0) < 0.01, '战役第一关 1.0 s');
+U.startLevel(1); ok(Math.abs(U.exposureSec - 0.6) < 0.01, '战役第二关 0.6 s');
+U.startLevel(2); ok(Math.abs(U.exposureSec - 0.5) < 0.01, '战役第三关 0.5 s');
+U.startLevel(3); ok(Math.abs(U.exposureSec - 0.45) < 0.01, '战役第四关 0.45 s');
 U.startLevel(4); ok(Math.abs(U.exposureSec - 0.4) < 0.01, '战役第五关 0.4 s');
 
-if (process.env.MAP) {
-  U.assembleRun(2026);
-  [0, 5, 10].forEach((i) => { console.log('\n--- room ' + i + ' ---\n' + U.ascii(i)); });
+console.log('\n[21] 特效生命周期：波纹/烧痕衰减与跨关重置');
+U.startLevel(0); frames(5);
+for (let i = 0; i < 5; i++) {
+  U.player.x = 6 * 32 + 20; U.player.y = 12 * 32 - 24; U.player.vx = 0; U.player.vy = 0;
+  frames(15); U.input.right = true; frames(6); U.input.right = false;
 }
+ok(U.waveLive > 0, '融合/脱离产生波纹（' + U.waveLive + ' 条）');
+ok(U.waveLive <= 64, '波纹数量受硬上限约束（≤64）');
+frames(60);
+ok(U.waveLive === 0, '波纹随时间衰减归零（现 ' + U.waveLive + '）');
+// 先明确脱离融合，再重新站上黑砖，确保触发一次新的融合事件
+U.input.right = true; frames(6); U.input.right = false;
+U.player.x = 6 * 32 + 20; U.player.y = 12 * 32 - 24; U.player.vx = 0; U.player.vy = 0;
+U.player.merged = false; U.player.mergeT = 0;
+frames(15);
+ok(U.waveLive > 0, '再次融合重新产生波纹');
+U.startLevel(1); frames(3);
+ok(U.waveLive === 0 && U.waveCount === 0, '切关后波纹数组与计数被重置');
+
+console.log('\n[24] 结局可见性：门的信号预判结局，不再是隐藏布尔');
+// 最后一关、集齐碎片后，门中央的"眼"信号应与即将触发的结局一致
+U.startLevel(4); frames(3);
+U.setRunClean(true);
+U.level.keys.forEach((k) => { k.got = true; });
+ok(U.exitSignal === 'unseen', '全程无痕 → 门显示闭眼信号（实际 ' + U.exitSignal + '）');
+ok(U.exitSignal === signalForEnding(runCleanToEnding(true)), '映射一致：shade 结局 ↔ unseen 信号');
+U.setRunClean(false);
+ok(U.exitSignal === 'seen', '被看见过 → 门显示睁眼信号（实际 ' + U.exitSignal + '）');
+ok(U.exitSignal === signalForEnding(runCleanToEnding(false)), '映射一致：light 结局 ↔ seen 信号');
+// 非最后一关 / 碎片未集齐时不显示信号
+U.startLevel(0); frames(3);
+U.level.keys.forEach((k) => { k.got = true; });
+ok(U.exitSignal === null, '非最后一关不显示结局信号');
+U.startLevel(4); frames(3);
+ok(U.exitSignal === null, '碎片未集齐时不显示结局信号');
+
+// 与 clearLevel 行 1062 的 endingKind 判定同一口径
+function runCleanToEnding(clean) { return clean ? 'shade' : 'light'; }
+// 与 game.js exitSignal() 同一口径：无痕结局显示闭眼信号
+function signalForEnding(ending) { return ending === 'shade' ? 'unseen' : 'seen'; }
+
+console.log('\n[22] 存档消毒 + 改名迁移：损坏存档不再导致崩溃，旧存档能迁移');
+// 先清两个键，确保走"旧键迁移"路径（前面的测试已写过新键，不清就会跳过迁移）
+sandbox.localStorage.removeItem('nsp.save.v1');
+// 旧版《暗隙》存档键，故意放损坏数据：同时验证迁移 + 消毒
+sandbox.localStorage.setItem('umbra.save.v2', '{"lastEvents":42,"unlocked":5,"best":"bad","depth":null,"ach":[]}');
+let reloadErr = null;
+try { vm.runInContext(code, sandbox, { filename: 'game.js#reload' }); } catch (e) { reloadErr = e; }
+ok(!reloadErr, '损坏存档下 game.js 可重新加载（' + (reloadErr && reloadErr.message) + '）');
+const U2 = sandbox.window.UMBRA;
+ok(U2 && typeof U2.startLevel === 'function', '测试环境仍暴露完整调试接口');
+let loadErr = null;
+try { U2.startLevel(0); frames(5); } catch (e) { loadErr = e; }
+ok(!loadErr, '损坏存档下 startLevel 不抛错（' + (loadErr && loadErr.message) + '）');
+ok(U2.state === 'play', '损坏存档下仍可进入游戏');
+ok(sandbox.localStorage.getItem('nsp.save.v1') !== null, '存档已写入新键 nsp.save.v1');
+ok(sandbox.localStorage.getItem('umbra.save.v2') === null, '旧键已在迁移后删除（避免重复迁移）');
 
 console.log('\n──────────────');
 console.log(`通过 ${pass} 项，失败 ${fail} 项`);

@@ -1,14 +1,15 @@
 /* =========================================================
-   UMBRA · 暗隙  —— 纯前端光影潜行平台 Demo  v2
-   参考玩法：Sqube Darkness（CrazyGames）
+   查无此人 · NO SUCH PERSON —— 纯前端光影潜行游戏 (Build 2.0)
+   主题 v4.0：被统计抹除的人——活着，但不在任何记录里。
+   核心：静止贴黑砖即"抹除可识别性"；注视者因你消失而愣住；出口即登记。
 
-   核心创意（v2 重构）：
-   你是一块黑色方块。地图里的黑色砖块是同类材质——
-   当你贴着黑砖静止 0.1 秒，"表情"（眼睛）消失，
-   你和砖块融合成一体，光找不到你。
-   一旦移动、起跳、或离开黑砖，眼睛睁开，你就重新成为靶子。
+   你是一块黑色方块。贴着黑砖静止 0.08 秒，"眼睛"消失，
+   你和砖块融为一体——你从"可识别的东西"里被抹掉了。
+   一旦移动、起跳、或离开黑砖，眼睛睁开，登记系统重新锁定你，
+   被照满即"被读完"——你作为一个不在记录里的人，无法承受被归档。
 
-   因此：黑砖 = 安全岛；移动 = 暴露；冲刺 = 用命换距离。
+   因此：黑砖 = 抹除可识别性；移动 = 暴露；冲刺 = 用命换距离。
+   出口也是一道注视：走进去的那一刻，你被登记了——代价是成为登记别人的人。
    ========================================================= */
 (function () {
   'use strict';
@@ -22,7 +23,8 @@
   const EXP_DN = 1 / 0.55;
   const MERGE_T = 0.08;      // 静止多久后融入
   const MERGE_V = 34;        // 低于该速度视为静止
-  const SAVE_KEY = 'umbra.save.v2';
+  const SAVE_KEY = 'nsp.save.v1';
+  const LEGACY_SAVE_KEY = 'umbra.save.v2';   // 旧版《暗隙》存档，升级时一次性迁移
 
   /* 五条表现层创意的总开关（可单独关掉做 A/B） */
   const FX = { warden: true, tide: true, burn: true, shard: true, pressure: true };
@@ -60,7 +62,7 @@
   ------------------------------------------------------------ */
   const LEVELS = [
     {
-      id: 1, name: '初暗', cols: 46,
+      id: 1, name: '列名', cols: 46,
       hint: '站上黑砖，别动。眼睛闭上，光就找不到你。',
       spawn: [96, 456],
       hard: [
@@ -85,8 +87,8 @@
       ]
     },
     {
-      id: 2, name: '灼线', cols: 52,
-      hint: '激光亮 0.9 秒、灭 1.3 秒。有些碎片藏在砖里——融进去才拿得到。',
+      id: 2, name: '点名', cols: 52,
+      hint: '激光亮 0.9 秒、灭 1.3 秒。等它灭了再动。',
       spawn: [64, 456],
       hard: [
         [0, 15, 14, 2], [18, 15, 14, 2], [36, 15, 16, 2],
@@ -97,7 +99,7 @@
         [31, 12, 3, 1], [38, 11, 4, 1], [44, 12, 4, 1], [48, 10, 3, 1]
       ],
       spikes: [[21, 14, 3, 1], [42, 14, 2, 1]],
-      keys: [[7, 11], [26, 10, 1], [45, 11]],
+      keys: [[7, 11], [26, 9], [45, 11]],
       ms: [[7,12,'g'],[20,14,'s'],[26,10,'g'],[45,12,'g']],
       exit: [49, 13],
       lights: [
@@ -107,7 +109,7 @@
       ]
     },
     {
-      id: 3, name: '巡灯', cols: 56,
+      id: 3, name: '空档', cols: 56,
       hint: '灯在找你的眼睛。闭上它，灯就从你身上滑过去。',
       spawn: [64, 456],
       hard: [
@@ -131,7 +133,7 @@
       ]
     },
     {
-      id: 4, name: '上升', cols: 44,
+      id: 4, name: '升格', cols: 44,
       hint: '一格一格往上。黑砖是台阶，也是掩体。',
       spawn: [64, 456],
       hard: [
@@ -152,7 +154,7 @@
       ]
     },
     {
-      id: 5, name: '终局', cols: 60,
+      id: 5, name: '注销', cols: 60,
       hint: '灯、线、断崖一起上。你已经知道怎么活了。',
       spawn: [64, 456],
       hard: [
@@ -290,23 +292,81 @@
   let noisePat = null;
   let dirFlash = 0;
   let endT = 0, endingKind = 'light', runClean = true;
-  // 一局（Run）模式的状态
-  let mode = 'campaign';                         // 'campaign' | 'run'
-  let runRooms = [], runIdx = 0, runAct = 0, runSeed = 0, runPath = [], runScore = 0;
-  let hallSel = 0;
-  let wakeNext = 'campaign';
-  const ACTS = 3, ROOMS_PER_ACT = 5;
   let memT = 0;
   let wakeT = 0;
   let memFreeze = false;   // 光"愣住"的状态：{L, t, ang}
   let save = { unlocked: 1, best: {}, depth: 0, lastTrace: null, lastEvents: null, ach: {} };
   const input = { left: false, right: false, jump: false, jumpEdge: false, dashEdge: false };
+  // 清空所有按键状态与「本帧边沿」。切关/暂停/恢复时调用，避免旧输入残留触发意外跳跃/冲刺。
+  function clearInputEdges() {
+    input.left = input.right = input.jump = false;
+    input.jumpEdge = false; input.dashEdge = false;
+  }
 
+  // 存档消毒：外部存档（旧版本 / 手动改写 / 配额异常）字段类型不可信。
+  // 只接受白名单且类型正确的字段，任何异常字段回退默认值，避免 makeLevel 里 .map/.find 抛错。
+  function sanitizeSave(o) {
+    const out = { unlocked: 1, best: {}, depth: 0, lastTrace: null, lastEvents: null, ach: {} };
+    if (!o || typeof o !== 'object' || Array.isArray(o)) return out;
+    const finite = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
+    out.unlocked = clamp(Math.floor(finite(o.unlocked, 1)), 1, LEVELS.length);
+    out.depth = clamp(Math.floor(finite(o.depth, 0)), 0, LEVELS.length);
+    // best：只保留数值型 [数字键, 有限数] 项
+    if (o.best && typeof o.best === 'object' && !Array.isArray(o.best)) {
+      for (const k of Object.keys(o.best)) {
+        const v = o.best[k];
+        if (/^\d+$/.test(k) && typeof v === 'number' && isFinite(v)) out.best[k] = v;
+      }
+    }
+    // lastEvents：必须是数组，且每项都有可用的 u/v 数值；否则丢弃整项
+    const validEvent = (e) => e && typeof e === 'object' &&
+      typeof e.u === 'number' && isFinite(e.u) && typeof e.v === 'number' && isFinite(e.v);
+    if (Array.isArray(o.lastEvents)) {
+      const ev = o.lastEvents.filter(validEvent).map((e) => ({
+        type: typeof e.type === 'string' ? e.type : 'hold', u: e.u, v: e.v
+      }));
+      out.lastEvents = ev.length ? ev : null;
+    }
+    // lastTrace：数组且每点都有 u/v 数值
+    if (Array.isArray(o.lastTrace)) {
+      const tr = o.lastTrace.filter(validEvent).map((e) => ({
+        u: e.u, v: e.v, m: !!e.m
+      }));
+      out.lastTrace = tr.length > 2 ? tr : null;
+    }
+    // ach：只保留布尔/数字真值项
+    if (o.ach && typeof o.ach === 'object' && !Array.isArray(o.ach)) {
+      for (const k of Object.keys(o.ach)) if (o.ach[k]) out.ach[k] = 1;
+    }
+    return out;
+  }
+  let saveWarn = false;
+  let migrated = false;
   try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    if (raw) { const o = JSON.parse(raw); if (o && typeof o === 'object') save = Object.assign(save, o); }
-  } catch (e) {}
-  function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} }
+    // 迁移：新版读新键；新键为空时读旧版《暗隙》存档，然后写回新键并删旧键（一次性）
+    let raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) { raw = localStorage.getItem(LEGACY_SAVE_KEY); if (raw) migrated = true; }
+    if (raw) {
+      const o = JSON.parse(raw);
+      if (o && typeof o === 'object') {
+        const clean = sanitizeSave(o);
+        // 发现被污染的字段：记录一次告警并把消毒结果写回，避免下次重复加载坏数据
+        const keys = ['unlocked', 'best', 'depth', 'lastTrace', 'lastEvents', 'ach'];
+        const dirty = keys.some((k) => JSON.stringify(o[k]) !== JSON.stringify(clean[k]));
+        save = clean;
+        if (dirty) saveWarn = true;
+      }
+    }
+  } catch (e) { saveWarn = true; }
+  function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { saveWarn = true; } }
+  if (migrated) {
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); localStorage.removeItem(LEGACY_SAVE_KEY); } catch (e) { saveWarn = true; }
+    if (typeof console !== 'undefined' && console.info) console.info('[NO SUCH PERSON] 已迁移旧版《暗隙》存档。');
+  }
+  if (saveWarn) {
+    if (typeof console !== 'undefined' && console.warn) console.warn('[NO SUCH PERSON] 存档数据已消毒或不可用，部分进度可能已重置。');
+    persist(); // 把消毒后的干净存档写回，避免下次重复加载坏数据
+  }
   // 成就数据层：只记不舍。真正的 Steam 成就需在发行时用 Steamworks SDK 上报，
   // 这里先把达成状态落到本地存档，保证判定逻辑与文案一一对应。
   const ACH = {
@@ -407,7 +467,6 @@
   }
 
   function startLevel(i) {
-    mode = 'campaign';
     levelIndex = clamp(i, 0, LEVELS.length - 1);
     level = makeLevel(LEVELS[levelIndex]);
     if (levelIndex === 0) runClean = true;   // 每一轮从头开始记「有没有被光看见过」
@@ -419,6 +478,8 @@
     };
     cam = clamp(player.x - VIEW_W / 2, 0, Math.max(0, level.cols * TILE - VIEW_W));
     particles = [];
+    clearEffects(); curious = null; negT = 0; dirFlash = 0;
+    clearInputEdges();
     shakeT = 0; shakeMag = 0; gameTime = 0; fx = 0;
     state = 'play';
     memFreeze = false;
@@ -432,242 +493,19 @@
     showTouch();
   }
 
-  /* ===================== 一局（Run）：房间池 + 门厅 ===================== */
-  function seededRng(seed) {
-    let s = (seed | 0) || 1;
-    return function () { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
-  }
-
-  // 生成一间保证可进的房：连续地板 + 侧墙 + 地上黑砖段（可躲）+ 走得到的碎片 + 右侧出口
-  // 房间设计规则（保证"合理"）：
-  //  1) 出生点(最左)与出口(最右)永远无灯，且是灰硬地板；
-  //  2) 中段地面按「黑,黑,灰」循环 → 任意位置 1 格内必有黑砖可藏；
-  //  3) 灯只放在中段 col 9..cols-8，均匀分布，永远照不到出生点；
-  //  4) 碎片放在中段某块黑砖上，走过去顺手拿；出口在最右端。
-  /* ===== 手工房间池（Phase 1.5：程序生成 → 手工编排）=====
-     每间房按「掩体岛 / 亮区缺口 / 灯」手工编排：
-     - 掩体岛（黑砖地板）之间最多 6 格灰缺口（0.56 s 可跨，远低于 1.0 s 致死时间）；
-     - 灯压在缺口上方：玩家等灯扫开再跨；
-     - 灯只放在 col 11..cols-8，出生点(左)与出口(右)永远安全。 */
-  const ROOM_RECIPES = [
-    { // A 入门：第一段缺口不点灯（先学会"跨"），后两段有灯
-      patches: [[4, 2], [11, 3], [19, 2], [26, 3]],
-      plats: [[15, 12, 3], [29, 13, 3]],
-      lights: [16, 23], key: [20, 14]
-    },
-    { // B 错落：掩体左右错开
-      patches: [[3, 3], [10, 2], [17, 4], [24, 2], [29, 3]],
-      plats: [[7, 12, 3], [14, 13, 4], [21, 12, 3]],
-      lights: [14, 22], key: [18, 14]
-    },
-    { // C 三岛：灯压在两个主缺口上
-      cols: 36,
-      patches: [[4, 3], [11, 3], [18, 3], [25, 3], [31, 3]],
-      plats: [[8, 12, 4], [15, 13, 3], [22, 12, 4]],
-      lights: [15, 22], key: [19, 14]
-    },
-    { // D 长缺口：缺口 6 格，最考验时机
-      patches: [[4, 2], [12, 3], [20, 2], [27, 3]],
-      plats: [[8, 12, 4], [16, 11, 4], [24, 12, 4]],
-      lights: [17, 24], key: [21, 14]
-    },
-    { // E 高台：中间能跳上去的台
-      patches: [[5, 2], [13, 2], [21, 2], [28, 2]],
-      plats: [[9, 12, 5], [17, 10, 5], [25, 12, 3]],
-      lights: [16, 24], key: [18, 14]
-    }
-  ];
-
-  function buildRoom(rec) {
-    const cols = rec.cols || 34;
-    const hard = [[0, 0, 1, 17], [0, 15, cols, 2], [cols - 1, 0, 1, 17]];
-    const soft = [];
-    (rec.patches || []).forEach(([x, w]) => soft.push([x, 15, w, 2]));   // 掩体岛（黑砖地板）
-    (rec.plats || []).forEach(([x, y, w]) => soft.push([x, y, w, 1]));    // 空中黑平台
-    const lights = (rec.lights || []).map((x, idx) => ({
-      type: 'cone', x: x * TILE, y: 40, angle: Math.PI / 2,
-      spread: 0.38, range: 560, amp: 0.22, speed: 0.65, phase: idx * 1.7
-    }));
-    return {
-      id: 70, name: '', cols,
-      spawn: [48, 15 * TILE - 24],
-      hard, soft, spikes: [], keys: [rec.key], exit: [cols - 3, 13],
-      lights, ms: [], ghosts: [], scars: []
-    };
-  }
-
-  function assembleRun(seed) {
-    runSeed = (seed | 0) || 1;
-    runRooms = [];
-    for (let idx = 0; idx < ACTS * ROOMS_PER_ACT; idx++) {
-      if (idx === 0) { runRooms.push(Object.assign({}, LEVELS[0], { id: 90 })); continue; }  // 每局从教程开始
-      const act = Math.floor(idx / ROOMS_PER_ACT);
-      const pos = idx % ROOMS_PER_ACT;
-      // 每一幕把 5 个模板洗牌一次（同一幕内顺序不重复），难度随幕递增
-      const rrA = seededRng(((runSeed ^ (act * 2654435761)) >>> 0));
-      const order = ROOM_RECIPES.map((_, k) => k);
-      for (let k = order.length - 1; k > 0; k--) { const j = Math.floor(rrA() * (k + 1)); const t = order[k]; order[k] = order[j]; order[j] = t; }
-      const def = buildRoom(ROOM_RECIPES[order[pos % order.length]]);
-      const sm = 1 + act * 0.3;
-      def.lights.forEach((L) => { L.speed *= sm; L.amp *= (1 + act * 0.25); L.spread += act * 0.03; });
-      def.id = 70 + idx;
-      runRooms.push(def);
-    }
-    return runRooms;
-  }
-
-  // 把一间房打成 ASCII 图，供无浏览器环境下检查关卡结构
-  // ' '=空 '#'=灰硬砖 '.'=黑砖（可伪装）'L'=灯 'K'=碎片 'E'=出口 'S'=出生
-  function roomAscii(idx) {
-    const def = runRooms[idx];
-    if (!def) return '';
-    const lv = makeLevel(def);
-    const g = lv.grid.map((r) => r.slice());
-    const setc = (cx, cy, ch) => { if (cy >= 0 && cy < lv.rows && cx >= 0 && cx < lv.cols) g[cy][cx] = ch; };
-    (def.lights || []).forEach((L) => { const cx = Math.floor(L.x / TILE); if (cx >= 0 && cx < lv.cols) g[0][cx] = 'L'; });
-    const k = (def.keys || [])[0]; if (k) setc(k[0], k[1], 'K');
-    setc(def.exit[0], def.exit[1], 'E');
-    setc(Math.floor(def.spawn[0] / TILE), Math.floor(def.spawn[1] / TILE), 'S');
-    let out = '';
-    for (let y = 0; y < lv.rows; y++) {
-      let row = '';
-      for (let x = 0; x < lv.cols; x++) {
-        const v = g[y][x];
-        if (v === 'L' || v === 'K' || v === 'E' || v === 'S') row += v;
-        else row += (v === EMPTY ? ' ' : (v === HARD ? '#' : '.'));
-      }
-      out += row + '\n';
-    }
-    return out;
-  }
-
-  function startRun(seed) {
-    mode = 'run';
-    assembleRun(seed == null ? (Date.now() & 0x7fffffff) : seed);
-    runIdx = 0; runAct = 0; runPath = []; runScore = 0; runClean = true;
-    startRoom(0);
-  }
-
-  function startRoom(idx) {
-    runIdx = clamp(idx, 0, runRooms.length - 1);
-    runAct = Math.floor(runIdx / ROOMS_PER_ACT);
-    level = makeLevel(runRooms[runIdx]);
-    player = {
-      x: level.spawn.x, y: level.spawn.y, w: 22, h: 24,
-      vx: 0, vy: 0, face: 1, onGround: false, coyote: 0, jumpBuf: 0,
-      dashT: 0, dashCd: 0, exposure: 0, alive: true, deadT: 0, trail: 0, _wasGround: false,
-      merged: false, mergeT: 0, eye: 1, mergePop: 0, press: 0, holdT: 0
-    };
-    cam = clamp(player.x - VIEW_W / 2, 0, Math.max(0, level.cols * TILE - VIEW_W));
-    particles = []; shakeT = 0; shakeMag = 0; gameTime = 0; fx = 0;
-    state = 'play'; memFreeze = false;
-    input.left = input.right = input.jump = false;
-    el.scrTitle.classList.add('hide');
-    el.scrPause.classList.add('hide');
-    el.scrClear.classList.add('hide');
-    el.hud.classList.remove('hide');
-    buildLvPips(); syncKeys(); updateHud(true); showTouch();
-  }
-
-  function openDoorHall() {
-    state = 'doorhall'; hallSel = 0;
-    el.hud.classList.add('hide');
-    el.touch.classList.add('hide');
-    el.scrClear.classList.add('hide');
-    Audio.ui();
-  }
-
-  function hallChoose() {
-    if (state !== 'doorhall') return;
-    runPath.push(hallSel);
-    const nextAct = runAct + 1;
-    // 最后一幕前的这一次是「假选择」：门不一样，去哪都一样；但游戏记住你选了哪扇
-    const fake = nextAct >= ACTS - 1;
-    if (nextAct < ACTS) {
-      // 假选择时忽略所选的门 → 无论点哪扇，下一幕完全一样
-      const rrA = seededRng(((runSeed ^ (0x51ed27 * ((fake ? 0 : hallSel) + 1)) ^ (nextAct * 131)) >>> 0));
-      const order = ROOM_RECIPES.map((_, q) => q);
-      for (let q = order.length - 1; q > 0; q--) { const j = Math.floor(rrA() * (q + 1)); const t = order[q]; order[q] = order[j]; order[j] = t; }
-      for (let i = 0; i < ROOMS_PER_ACT; i++) {
-        const k = nextAct * ROOMS_PER_ACT + i;
-        const def = buildRoom(ROOM_RECIPES[order[i % order.length]]);
-        let mult = 1 + nextAct * 0.3;
-        if (!fake && hallSel === 0) mult += 0.2;    // 亮门：灯更快
-        if (!fake && hallSel === 1) mult -= 0.15;   // 暗门：灯更慢
-        def.lights.forEach((L) => { L.speed *= mult; L.amp *= (1 + nextAct * 0.25); L.spread += nextAct * 0.03; });
-        if (!fake && hallSel === 2) def.ghosts = [[Math.floor(def.cols / 2), 12]];   // 记忆门：多一道刻痕
-        def.id = 70 + k;
-        runRooms[k] = def;
-      }
-    }
-    Audio.ui();
-    if (nextAct < ACTS) startRoom(nextAct * ROOMS_PER_ACT);
-    else { state = 'ending'; endT = 3.4; }
-  }
-
-  function drawDoorHall() {
-    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    ctx.fillStyle = '#2b2f33';
-    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
-    const n = 3, w = 118, h = 188, gap = 56;
-    const totalW = n * w + (n - 1) * gap;
-    const x0 = (VIEW_W - totalW) / 2, y0 = (VIEW_H - h) / 2 + 6;
-    for (let i = 0; i < n; i++) {
-      const dx = x0 + i * (w + gap), sel = i === hallSel;
-      ctx.fillStyle = sel ? 'rgba(255,255,255,.94)' : 'rgba(255,255,255,.12)';
-      ctx.fillRect(dx, y0, w, h);
-      ctx.strokeStyle = sel ? '#0a0a0a' : 'rgba(255,255,255,.42)';
-      ctx.lineWidth = sel ? 3 : 1.5;
-      ctx.strokeRect(dx + 0.5, y0 + 0.5, w - 1, h - 1);
-      const cx = dx + w / 2, cy = y0 + h / 2;
-      const ink = sel ? '#0a0a0a' : 'rgba(255,255,255,.75)';
-      // 图标（无字）：0 亮门=实心块+光；1 暗门=一道缝；2 记忆门=两道闭眼刻痕
-      if (i === 0) {
-        ctx.fillStyle = ink; ctx.fillRect(cx - 15, cy - 15, 30, 30);
-        ctx.fillStyle = sel ? 'rgba(10,10,10,.35)' : 'rgba(255,255,255,.35)';
-        ctx.fillRect(cx - 22, cy - 2, 44, 4);
-      } else if (i === 1) {
-        ctx.strokeStyle = ink; ctx.lineWidth = 2.4;
-        ctx.beginPath(); ctx.moveTo(cx - 20, cy); ctx.lineTo(cx + 20, cy); ctx.stroke();
-      } else {
-        ctx.strokeStyle = ink; ctx.lineWidth = 2.4;
-        ctx.beginPath();
-        ctx.moveTo(cx - 15, cy); ctx.lineTo(cx - 4, cy);
-        ctx.moveTo(cx + 4, cy); ctx.lineTo(cx + 15, cy);
-        ctx.stroke();
-      }
-      if (sel) { ctx.fillStyle = '#0a0a0a'; ctx.fillRect(cx - 20, y0 + h + 12, 40, 3); }
-    }
-    // 输入提示（纯图形）：← → 选择，▶ 确认
-    const hy = VIEW_H - 20;
-    ctx.fillStyle = 'rgba(255,255,255,.42)';
-    ctx.beginPath(); ctx.moveTo(VIEW_W / 2 - 44, hy); ctx.lineTo(VIEW_W / 2 - 34, hy - 5); ctx.lineTo(VIEW_W / 2 - 34, hy + 5); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(VIEW_W / 2 - 16, hy); ctx.lineTo(VIEW_W / 2 - 26, hy - 5); ctx.lineTo(VIEW_W / 2 - 26, hy + 5); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,.55)';
-    ctx.beginPath(); ctx.moveTo(VIEW_W / 2 + 12, hy - 6); ctx.lineTo(VIEW_W / 2 + 12, hy + 6); ctx.lineTo(VIEW_W / 2 + 23, hy); ctx.closePath(); ctx.fill();
-
-    for (let a = 0; a < ACTS; a++) {
-      ctx.fillStyle = a < runAct ? 'rgba(255,255,255,.85)' : (a === runAct ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.16)');
-      ctx.fillRect(VIEW_W / 2 - 34 + a * 24, VIEW_H - 44, 14, 4);
-    }
-  }
-
   /* ------------------------- 输入 ------------------------- */
   function onKeyDown(e) {
     const k = e.code;
     if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space'].indexOf(k) >= 0) e.preventDefault();
     Audio.init();
     if (e.repeat) return;
-    if (state === 'doorhall') {
-      if (k === 'ArrowLeft' || k === 'KeyA') { hallSel = (hallSel + 2) % 3; Audio.ui(); }
-      else if (k === 'ArrowRight' || k === 'KeyD') { hallSel = (hallSel + 1) % 3; Audio.ui(); }
-      else if (k === 'Space' || k === 'Enter' || k === 'ArrowUp' || k === 'KeyW' || k === 'KeyJ') { hallChoose(); }
-      return;
+    // 只有 play 态才写入移动/跳跃/冲刺输入。暂停时按键不得进入 input，避免恢复后残留。
+    if (state === 'play') {
+      if (k === 'ArrowLeft' || k === 'KeyA') input.left = true;
+      if (k === 'ArrowRight' || k === 'KeyD') input.right = true;
+      if (k === 'Space' || k === 'KeyW' || k === 'ArrowUp' || k === 'KeyJ') { input.jump = true; input.jumpEdge = true; }
+      if (k === 'ShiftLeft' || k === 'ShiftRight' || k === 'KeyZ' || k === 'KeyK') input.dashEdge = true;
     }
-    if (k === 'ArrowLeft' || k === 'KeyA') input.left = true;
-    if (k === 'ArrowRight' || k === 'KeyD') input.right = true;
-    if (k === 'Space' || k === 'KeyW' || k === 'ArrowUp' || k === 'KeyJ') { input.jump = true; input.jumpEdge = true; }
-    if (k === 'ShiftLeft' || k === 'ShiftRight' || k === 'KeyZ' || k === 'KeyK') input.dashEdge = true;
     if (k === 'KeyR' && (state === 'play' || state === 'pause')) restartLevel();
     if (k === 'Escape' || k === 'KeyP') togglePause();
     if (k === 'KeyM') toggleMute();
@@ -684,20 +522,6 @@
   }
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
-  // 门厅：鼠标直接点门
-  cv.addEventListener('click', (e) => {
-    if (state !== 'doorhall') return;
-    const rect = cv.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * VIEW_W;
-    const n = 3, w = 118, gap = 56;
-    const totalW = n * w + (n - 1) * gap;
-    const x0 = (VIEW_W - totalW) / 2;
-    for (let i = 0; i < n; i++) {
-      const dx = x0 + i * (w + gap);
-      if (x >= dx && x <= dx + w) { hallSel = i; hallChoose(); return; }
-    }
-  });
-
   el.touch.querySelectorAll('.tbtn').forEach((b) => {
     const k = b.dataset.k;
     const on = (e) => {
@@ -932,6 +756,24 @@
     }
   }
 
+  // 波纹（影压）与烧痕的生命周期：旧版只 push 不衰减，波纹永久定格、数组无上限增长。
+  // 统一在这里递减 t 并回收；waveCount 是累计计数（供调试观察），不随回收减少。
+  const WAVE_CAP = 64;
+  function updateEffects(dt) {
+    for (let i = waves.length - 1; i >= 0; i--) {
+      waves[i].t -= dt;
+      if (waves[i].t <= 0) waves.splice(i, 1);
+    }
+    if (waves.length > WAVE_CAP) waves.splice(0, waves.length - WAVE_CAP);
+    if (level) {
+      for (let i = level.marks.length - 1; i >= 0; i--) {
+        level.marks[i].t -= dt;
+        if (level.marks[i].t <= 0) level.marks.splice(i, 1);
+      }
+    }
+  }
+  function clearEffects() { waves = []; waveCount = 0; }
+
   /* ------------------------- 逻辑 ------------------------- */
   function die(reason) {
     const p = player;
@@ -964,20 +806,13 @@
 
   function restartLevel() {
     const keepDeaths = level ? level.deaths : 0;
-    if (mode === 'run') startRoom(runIdx);
-    else startLevel(levelIndex);
+    startLevel(levelIndex);
     if (level) level.deaths = keepDeaths;
     updateHud(true);
   }
 
   // 暴露致死时间：随进度收紧（越往后越短 = 越难）。第一关最松 ~1.0s，第三幕最硬 0.35s。
   function exposureSec() {
-    if (mode === 'run') {
-      if (runIdx === 0) return 1.0;   // 第一间：最容易
-      if (runAct === 0) return 0.6;
-      if (runAct === 1) return 0.45;
-      return 0.35;                     // 第三幕：最硬
-    }
     return [1.0, 0.6, 0.5, 0.45, 0.4][levelIndex] || 0.5;
   }
 
@@ -987,6 +822,7 @@
     level.time += dt;
     fx = Math.max(0, fx - dt * 3);
     if (shakeT > 0) shakeT -= dt;
+    updateEffects(dt);
 
     const p = player;
 
@@ -1130,7 +966,7 @@
       p.exposure = Math.min(1, p.exposure + dt / exposureSec());
       if (p.exposure > 0.1) runClean = false;   // 被光看到，就再也不是「无痕」了
       if (p.exposure >= 1) {
-        if (mode === 'campaign' && levelIndex === 0 && !level._mercy) {
+        if (levelIndex === 0 && !level._mercy) {
           // 教学关免死一次：灯"被吓退"愣住 3.6 s，给你一口喘息看清"停住"这件事
           level._mercy = true;
           p.exposure = 0;
@@ -1180,7 +1016,10 @@
     }
 
     // ---- 结局分歧：集齐碎片后不去开门、而是伪装着不动，就慢慢融回墙里（成为砖）----
-    if (levelIndex === LEVELS.length - 1 && keysLeft() === 0 && !rectsOverlap(body, level.exit)) {
+    // 末关判定必须按当前模式取局部进度：旧版用全局 levelIndex，导致玩过战役第5关后
+    // 进 run 模式任意房间都能误触发 brick，而全新会话进 run 又永远触发不了。
+    const isFinalStage = levelIndex === LEVELS.length - 1;
+    if (isFinalStage && keysLeft() === 0 && !rectsOverlap(body, level.exit)) {
       level.stayT = p.merged ? (level.stayT || 0) + dt : 0;
       if (level.stayT >= 5) { triggerBrick(); return; }
     } else if (level.stayT) level.stayT = 0;
@@ -1217,37 +1056,16 @@
       sh ? { type: 'dash', u: sh.u, v: sh.v } : { type: 'dash', u: 0.9, v: 0.8 }
     ];
     save.lastEvents = level.events3;
-    // 战役模式才动"解锁 / 最佳时间"；一局模式不污染战役存档
-    if (mode !== 'run') {
-      save.depth = Math.max(save.depth, Math.min(LEVELS.length, levelIndex + 1));
-      const best = save.best[levelIndex];
-      if (!best || level.time < best) save.best[levelIndex] = level.time;
-      save.unlocked = Math.max(save.unlocked, Math.min(LEVELS.length, levelIndex + 2));
-    }
+    save.depth = Math.max(save.depth, Math.min(LEVELS.length, levelIndex + 1));
+    const best = save.best[levelIndex];
+    if (!best || level.time < best) save.best[levelIndex] = level.time;
+    save.unlocked = Math.max(save.unlocked, Math.min(LEVELS.length, levelIndex + 2));
     persist();
     el.hud.classList.add('hide');
     el.touch.classList.add('hide');
     el.scrClear.classList.add('hide');
     Audio.win();
     Audio.setHeat(0);
-
-    // 一局模式：清房 → 记忆过场 / 幕间门厅 / 最终结局
-    if (mode === 'run') {
-      runScore++;
-      const roomInAct = runIdx % ROOMS_PER_ACT;
-      const isActEnd = roomInAct === ROOMS_PER_ACT - 1;
-      const isLast = runIdx >= runRooms.length - 1;
-      if (isLast) {
-        endingKind = runClean ? 'shade' : 'light';
-        achieve(endingKind);
-        state = 'ending'; endT = 3.4;
-      } else if (isActEnd) {
-        openDoorHall();
-      } else {
-        state = 'memory'; memT = 2.4;
-      }
-      return;
-    }
 
     // 战役模式：记忆演出期间 step() 不跑，白闪会卡住不衰减，所以不设 fx
     if (levelIndex === LEVELS.length - 1) {
@@ -1273,11 +1091,6 @@
 
   function nextOrMenu() {
     Audio.ui();
-    if (mode === 'run') {
-      if (runIdx >= runRooms.length - 1) { toTitle(); return; }
-      startRoom(runIdx + 1);
-      return;
-    }
     if (levelIndex === LEVELS.length - 1) { toTitle(); return; }
     startLevel(levelIndex + 1);
   }
@@ -1461,7 +1274,6 @@
       drawWake(clamp(1 - wakeT / 2.4, 0, 1));
       return;
     }
-    if (state === 'doorhall') { drawDoorHall(); return; }
     const t = gameTime;
     const shx = shakeT > 0 ? rnd(-1, 1) * shakeMag * (shakeT / 0.35) : 0;
     const shy = shakeT > 0 ? rnd(-1, 1) * shakeMag * (shakeT / 0.35) : 0;
@@ -1834,6 +1646,16 @@
     return dx * dx + dy * dy < r * r;
   }
 
+  // 结局预告：最后一关集齐碎片后，门中央给一个可见的"眼"标记，
+  // 让玩家在走进去之前就知道会是哪个结局——不再由隐藏布尔偷偷决定。
+  // 睁眼（亮）= 被看见过 → 成为灯；闭眼（一道缝）= 全程无痕 → 无痕。
+  // 返回 null 表示当前不显示（非最后一关 / 碎片没集齐 / 已选成为砖）
+  function exitSignal() {
+    if (levelIndex !== LEVELS.length - 1) return null;
+    if (keysLeft() !== 0) return null;
+    return runClean ? 'unseen' : 'seen';
+  }
+
   function drawExit(t) {
     const e = level.exit;
     const open = keysLeft() === 0;
@@ -1878,6 +1700,45 @@
         ctx.strokeStyle = 'rgba(255,255,255,' + (0.35 + flash * 0.45) + ')';
         ctx.lineWidth = 1;
         ctx.strokeRect(-3, -3, 6, 6);
+      }
+      ctx.restore();
+    }
+
+    // 结局预告标记：门中央的"眼"。seen=睁眼(实心亮点)，unseen=闭眼(一道缝)。
+    // 这是结局的可见读数——玩家走进门前就知道会成为灯还是无痕。
+    // L3 可读性：curious 期间让"上一个在这里消失的人"的闭眼刻痕亮起，
+    // 把"灯愣住"钉成"它找不到你了"，而不是一个系统故障。L3 用 ghosts（无 clue 字段）。
+    // 只在 L3 生效——L4/L5 的光保持致命读数，避免玩家学到错误规则。
+    if (curious && levelIndex === 2 && level.def.ghosts && level.def.ghosts.length) {
+      const gh = level.def.ghosts[0];
+      const bx = gh[0] * TILE + TILE / 2;
+      const by = gh[1] * TILE + TILE / 2;
+      const a = Math.min(1, curious.hold / 0.6) * 0.55;
+      ctx.save();
+      ctx.fillStyle = 'rgba(255,255,255,' + a + ')';
+      ctx.fillRect(bx - 11, by - 1, 22, 2);
+      ctx.restore();
+    }
+
+    const sig = exitSignal();
+    if (sig) {
+      ctx.save();
+      ctx.translate(e.x + e.w / 2, e.y + e.h / 2 + 2);
+      const bright = 0.55 + 0.35 * pulse;
+      if (sig === 'seen') {
+        // 睁眼：一个亮瞳 + 外圈，呼应"成为灯"
+        ctx.fillStyle = 'rgba(255,255,255,' + bright + ')';
+        ctx.beginPath(); ctx.arc(0, 0, 4.2, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,' + (bright * 0.8) + ')';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.stroke();
+      } else {
+        // 闭眼：一道横缝，呼应"无痕 / 从未来过"
+        ctx.strokeStyle = 'rgba(10,10,12,' + (0.5 + 0.3 * pulse) + ')';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.moveTo(-7, 0); ctx.lineTo(7, 0); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,' + (bright * 0.5) + ')';
+        ctx.fillRect(-7, 1.6, 14, 1);
       }
       ctx.restore();
     }
@@ -2235,8 +2096,8 @@
   function buildLvPips() {
     if (!el.lvPips) return;
     el.lvPips.innerHTML = '';
-    const n = mode === 'run' ? (runRooms.length || 15) : LEVELS.length;
-    const cur = mode === 'run' ? runIdx : levelIndex;
+    const n = LEVELS.length;
+    const cur = levelIndex;
     for (let i = 0; i < n; i++) {
       const b = document.createElement('i');
       if (i < cur) b.className = 'done';
@@ -2274,9 +2135,8 @@
   /* ------------------------- 状态切换 ------------------------- */
   function toTitle() {
     state = 'title';
-    mode = 'campaign';
     level = null; player = null; lastStatus = null;
-    input.left = input.right = input.jump = false;
+    clearInputEdges(); clearEffects(); curious = null;
     el.hud.classList.add('hide');
     el.touch.classList.add('hide');
     el.scrPause.classList.add('hide');
@@ -2291,10 +2151,12 @@
   function togglePause() {
     if (state === 'play') {
       state = 'pause';
+      clearInputEdges();  // 暂停瞬间清空按键，避免暂停期间按键在恢复后被 step 消费
       el.scrPause.classList.remove('hide');
       Audio.setHeat(0);
     } else if (state === 'pause') {
       state = 'play';
+      clearInputEdges();  // 恢复瞬间再清一次（暂停界面可能按过跳/冲键）
       el.scrPause.classList.add('hide');
       Audio.init();
     }
@@ -2325,6 +2187,18 @@
   let acc = 0, last = performance.now(), fpsT = 0, fpsN = 0;
 
   function frame(now) {
+    // 单层帧：把实际逻辑放进 frameBody，外层保证 requestAnimationFrame 必然再挂载。
+    // 任何一帧的异常都不应让整个循环永久停止（曾导致损坏存档时永久黑屏）。
+    try {
+      frameBody(now);
+    } catch (e) {
+      if (typeof console !== 'undefined' && console.error) console.error('[NO SUCH PERSON] 帧异常，已恢复到标题：', e);
+      try { toTitle(); } catch (_) {}
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function frameBody(now) {
     const raw = Math.min(0.05, (now - last) / 1000);
     last = now;
 
@@ -2335,17 +2209,11 @@
     } else if (state === 'wake') {
       acc = 0;
       wakeT -= raw;
-      if (wakeT <= 0) { if (wakeNext === 'run') startRoom(0); else startLevel(0); }
-    } else if (state === 'doorhall') {
-      acc = 0;
-      gameTime += raw;
+      if (wakeT <= 0) startLevel(0);
     } else if (state === 'memory') {
       acc = 0;
       if (!memFreeze) memT -= raw;
-      if (memT <= 0) {
-        if (mode === 'run') startRoom(runIdx + 1);   // 一局模式：过场结束直接进下一间房
-        else { state = 'clear'; el.scrClear.classList.remove('hide'); }
-      }
+      if (memT <= 0) { state = 'clear'; el.scrClear.classList.remove('hide'); }
     } else if (state === 'ending') {
       acc = 0;
       endT -= raw;
@@ -2362,24 +2230,11 @@
       el.fps.textContent = Math.round(fpsN / fpsT) + ' FPS';
       fpsT = 0; fpsN = 0;
     }
-    requestAnimationFrame(frame);
   }
 
   /* ------------------------- 绑定 ------------------------- */
   function startIntro() {
     Audio.init(); Audio.ui();
-    wakeNext = 'campaign';
-    state = 'wake';
-    wakeT = 2.4;
-    el.scrTitle.classList.add('hide');
-  }
-  // 一局模式：先播开场（灯闭眼→砖睁眼），再进第一间房
-  function beginRun(seed) {
-    Audio.init(); Audio.ui();
-    mode = 'run';
-    assembleRun(seed == null ? (Date.now() & 0x7fffffff) : seed);
-    runIdx = 0; runAct = 0; runPath = []; runScore = 0; runClean = true;
-    wakeNext = 'run';
     state = 'wake';
     wakeT = 2.4;
     el.scrTitle.classList.add('hide');
@@ -2394,7 +2249,7 @@
   $('#btnRestart').addEventListener('click', () => { Audio.ui(); el.scrPause.classList.add('hide'); state = 'play'; restartLevel(); });
   $('#btnQuit').addEventListener('click', () => { Audio.ui(); toTitle(); });
   $('#btnNext').addEventListener('click', () => nextOrMenu());
-  $('#btnReplay').addEventListener('click', () => { Audio.ui(); startLevel(levelIndex); });
+  $('#btnReplay').addEventListener('click', () => { Audio.ui(); restartLevel(); });
   $('#btnMenu').addEventListener('click', () => { Audio.ui(); toTitle(); });
 
   window.addEventListener('resize', resizeCanvas);
@@ -2406,6 +2261,14 @@
   showTouch();
   requestAnimationFrame(frame);
 
+  // 调试接口 DEV 开关：测试沙箱（无 location）与显式 ?dev=1 / window.__NSP_DEV__（兼容 __UMBRA_DEV__）时暴露完整接口；
+  // 生产浏览器默认只暴露极简只读信息，避免控制台直接跳关/改存档/伪造成就。
+  const DEV = (typeof location === 'undefined') || window.__NSP_DEV__ === true || window.__UMBRA_DEV__ === true ||
+    (typeof location !== 'undefined' && /[?&]dev=1\b/i.test(location.search || ''));
+  if (!DEV) {
+    window.UMBRA = Object.freeze({ name: 'NO SUCH PERSON', build: '2.0.0' });
+    return;
+  }
   window.UMBRA = {
     LEVELS, startLevel, input,
     get state() { return state; },
@@ -2413,6 +2276,8 @@
     get level() { return level; },
     get curious() { return curious; },
     get waveCount() { return waveCount; },
+    get waveLive() { return waves.length; },
+    get markLive() { return level ? level.marks.length : 0; },
     get clueT() { return level ? level.clueT : -1; },
     get depth() { return save.depth; },
     get wakeT() { return wakeT; },
@@ -2423,13 +2288,9 @@
     get negT() { return negT; },
     get endingKind() { return endingKind; },
     get runClean() { return runClean; },
+    get exitSignal() { return exitSignal(); },
+    setRunClean: (v) => { runClean = !!v; },   // 仅供 DEV 测试：构造无痕/有痕两种路径
     get ach() { return save.ach || {}; },
-    get mode() { return mode; },
-    get exposureSec() { return exposureSec(); },
-    get runIdx() { return runIdx; },
-    get runRooms() { return runRooms; },
-    get runPath() { return runPath; },
-    assembleRun, startRun, beginRun, startRoom, openDoorHall, hallChoose,
-    ascii: (idx) => roomAscii(idx)
+    get exposureSec() { return exposureSec(); }
   };
 })();

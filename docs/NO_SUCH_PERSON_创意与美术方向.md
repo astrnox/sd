@@ -1,6 +1,9 @@
-# UMBRA《暗隙》— 创意增补与美术方向定稿
+# NO SUCH PERSON《查无此人》— 创意增补与美术方向定稿
 
-> 版本 v1.0 ｜ 2026-11-14 ｜ 配套：`umbra-demo/`（Demo Build 0.9）、`UMBRA_暗隙_PRD.md`
+> ℹ️ **内部标识符说明**：本文出现的 `window.UMBRA`、`umbra.save.v2`、`umbra-demo/`、`UMBRA-TOKEN` 等为**旧版内部代号**（代码事实：调试出口 / 存档键 / 历史工作目录 / 提示词 token），为保持与源码及历史记录一致而原样保留；产品现名为 **NO SUCH PERSON《查无此人》**。
+
+
+> 版本 v1.0 ｜ 2026-11-14 ｜ 配套：`umbra-demo/`（Demo Build 0.9）、`NO_SUCH_PERSON_PRD.md`
 > 本文只回答两个问题：**还能加什么**，以及**长什么样**。
 
 ---

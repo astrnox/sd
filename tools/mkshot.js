@@ -8,6 +8,7 @@ const pre = `<script>
 (function(){
   var clock=0,n=0,MAXF=${maxF};
   window.__hook=null;
+  window.__NSP_DEV__=true; // 截图工具需要完整调试接口控制玩家坐标
   window.performance.now=function(){return clock;};
   window.requestAnimationFrame=function(cb){
     if(n>=MAXF) return 0;
